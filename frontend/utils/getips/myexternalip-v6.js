@@ -1,35 +1,14 @@
-import { isValidIP } from '@/utils/valid-ip.js';
+// MyExternalIP IPv6 — ipv6.myexternalip.com JSON endpoint. Fallback hop for
+// the Cloudflare IPv6 chain in index.js.
+import { fetchWithTimeout } from '../fetch-with-timeout.js';
 
-// 从 MyExternalIP 获取 IPv6 地址
-const getIPFromMyExternalIP_V6 = async () => {
-    try {
-        const response = await fetch("https://ipv6.myexternalip.com/json");
-        if (!response.ok) {
-            throw new Error("Network response was not ok");
-        }
-
+export const myExternalIPV6 = {
+    id: 'myexternalip-v6',
+    name: 'MyExternalIP IPv6',
+    run: async () => {
+        const response = await fetchWithTimeout('https://ipv6.myexternalip.com/json');
+        if (!response.ok) throw new Error('Network response was not ok');
         const data = await response.json();
-        const ip = data.ip;
-        const source = "MyExternalIP IPv6";
-        if (isValidIP(ip)) {
-            return {
-                ip: ip,
-                source: source
-            };
-        } else { 
-            console.error("Invalid IP from MyExternalIP:", ip);
-            return {
-                ip: null,
-                source: source
-            };
-        }
-    } catch (error) {
-        console.error("Error fetching IPv6 address from MyExternalIP:", error);
-        return {
-            ip: null,
-            source: "MyExternalIP IPv6"
-        };
-    }
+        return data.ip;
+    },
 };
-
-export { getIPFromMyExternalIP_V6 };

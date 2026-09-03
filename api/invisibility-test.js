@@ -1,32 +1,20 @@
-import { refererCheck } from '../common/referer-check.js';
+import { fetchUpstream } from '../common/fetch-with-timeout.js';
+import logger from '../common/logger.js';
 
-// 如果长度不等于 28 且不是字母与数字的组合，则返回 false
+// If length is not 28 and is not a combination of letters and numbers, return false
 function isValidUserID(userID) {
-    if (typeof userID !== 'string') {
-        console.error("Invalid type for userID");
-        return false;
-    }
-    if (userID.length !== 28 || !/^[a-zA-Z0-9]+$/.test(userID)) {
-        console.error("Invalid userID format");
-        return false;
-    }
+    if (typeof userID !== 'string') return false;
+    if (userID.length !== 28 || !/^[a-zA-Z0-9]+$/.test(userID)) return false;
     return true;
 }
 
 export default async (req, res) => {
-
-    // 限制只能从指定域名访问
-    const referer = req.headers.referer;
-    if (!refererCheck(referer)) {
-        return res.status(403).json({ error: referer ? 'Access denied' : 'What are you doing?' });
-    }
-
     const id = req.query.id;
     if (!id) {
         return res.status(400).json({ error: 'No ID provided' });
     }
 
-    // 检查 IP 地址是否合法
+    // Check if address is valid
     if (!isValidUserID(id)) {
         return res.status(400).json({ error: 'Invalid ID' });
     }
@@ -41,13 +29,41 @@ export default async (req, res) => {
     const url = new URL(`${apiEndpoint}/getpdresult/${id}?apikey=${apikey}`);
 
     try {
-        const apiResponse = await fetch(url, {
+        const apiResponse = await fetchUpstream(url, {
             headers: {
                 ...req.headers,
             }
         });
 
-        // 捕捉上游错误
+        // Upstream 404 = "result not computed yet" — a normal answer while
+        // the frontend polls after starting a test, not a failure. Translate
+        // to 200 {status:'pending'}
+        if (apiResponse.status === 404) {
+            return res.json({ status: 'pending' });
+        }
+
+        // Upstream 429 = monthly quota exhausted. Pass status + code through
+        // so the frontend can point at the sponsor path; not an error for us.
+        if (apiResponse.status === 429) {
+            const errorData = await apiResponse.json().catch(() => ({}));
+            return res.status(429).json({
+                error: errorData.error || 'Monthly quota exceeded',
+                code: 'quota_exceeded'
+            });
+        }
+
+        // Upstream 401/403. Pass the status through so the frontend prompts
+        // sign-in instead of retrying; keep it off the error logger.
+        if (apiResponse.status === 401 || apiResponse.status === 403) {
+            let detail = 'Sign in required';
+            try {
+                const errorData = await apiResponse.json();
+                detail = errorData.message || detail;
+            } catch { /* unreadable body — keep the generic detail */ }
+            return res.status(apiResponse.status).json({ error: detail });
+        }
+
+        // Catch upstream error
         if (!apiResponse.ok) {
             let errorDetail = '';
             try {
@@ -62,7 +78,7 @@ export default async (req, res) => {
         const data = await apiResponse.json();
         res.json(data);
     } catch (error) {
-        console.error("Error during API request:", error);
+        logger.error({ err: error }, 'invisibility-test upstream request failed');
         res.status(500).json({ error: error.message });
     }
 

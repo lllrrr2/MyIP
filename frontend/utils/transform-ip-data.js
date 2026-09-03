@@ -1,21 +1,42 @@
-// 解析IP数据
+import getCountryName from '../data/country-name.js';
+
+// The static map renders at zoom 3 (continent scale), where ~0.176° spans a
+// single pixel. Quantizing the request coords to 1 decimal (~0.1°, sub-pixel)
+// leaves the marker visually unchanged while collapsing every IP in the same
+// 0.1° grid cell onto one CF edge-cache key — the cache key is the client URL,
+// so this rounding must happen here, not in the backend handler. The full-
+// precision lat/lon are still kept on baseData for display.
+function mapCoord(value) {
+    return Number(value).toFixed(1);
+}
+
+// Parse IP data
 function transformDataFromIPapi(data, ipGeoSource, t, mapLanguage) {
     if (data.error) {
         throw new Error(data.reason);
     }
 
+    const hasCoords = data.latitude && data.longitude;
+    const mapLat = hasCoords ? mapCoord(data.latitude) : "";
+    const mapLon = hasCoords ? mapCoord(data.longitude) : "";
+
     const baseData = {
-        country_name: data.country_name || "",
+        // Country display name is derived from the code locally (CLDR via
+        // getCountryName) so every geo source shows the same, UI-language
+        // name; the upstream's own string is only a fallback for payloads
+        // without a usable code.
+        country_name: getCountryName(data.country, mapLanguage) || data.country_name || "",
         country_code: data.country === 'N/A' ? '' : data.country,
         region: data.region || "",
         city: data.city || "",
         latitude: data.latitude || "",
         longitude: data.longitude || "",
+        timezone: data.timezone || "",
         isp: data.org || "",
         asn: data.asn || "",
         asnlink: data.asn ? data.asn.startsWith('AS') ? `https://bgp.tools/as/${data.asn}` : false : false,
-        mapUrl: data.latitude && data.longitude ? `/api/map?latitude=${data.latitude}&longitude=${data.longitude}&language=${mapLanguage}` : "",
-        mapUrl_dark: data.latitude && data.longitude ? `/api/map?latitude=${data.latitude}&longitude=${data.longitude}&language=${mapLanguage}&CanvasMode=Dark` : ""
+        mapUrl: hasCoords ? `/api/map?latitude=${mapLat}&longitude=${mapLon}&language=${mapLanguage}` : "",
+        mapUrl_dark: hasCoords ? `/api/map?latitude=${mapLat}&longitude=${mapLon}&language=${mapLanguage}&CanvasMode=Dark` : ""
     };
 
     if (ipGeoSource === 0) {
@@ -29,23 +50,35 @@ function transformDataFromIPapi(data, ipGeoSource, t, mapLanguage) {
     return baseData;
 };
 
-// 解析代理数据
+// Gated sentinels the backend may substitute for the real advanced fields:
+// signed-out visitors get 'sign_in_required', over-quota users get
+// 'quota_exceeded'. Both propagate as-is so the UI can pick the right CTA.
+const gatedSentinel = (value) =>
+    value === 'sign_in_required' || value === 'quota_exceeded' ? value : null;
+
+// Parse proxy data
 function extractAdvancedData(advancedData = {}, t) {
     const isProxy = determineIsProxy(advancedData, t);
     const type = determineType(advancedData, t);
-    const qualityScore = advancedData.score === 'sign_in_required' ? 'sign_in_required' : advancedData.score;
-    const proxyProtocol = determineProtocol(advancedData, t);
-    const proxyOperator = advancedData.proxyProvider || "";
-    const isNativeIP = advancedData.tags === 'sign_in_required' ? 'sign_in_required' : advancedData.tags.isNative;
+    const qualityScore = gatedSentinel(advancedData.score) || advancedData.score;
+    const proxyProtocol = advancedData.proxyProtocol || "";
+    const proxyProvider = advancedData.proxyProvider || "";
+    const isNativeIP = gatedSentinel(advancedData.tags) || advancedData.tags.isNative;
 
-    return { isProxy, type, qualityScore, proxyProtocol, proxyOperator, isNativeIP };
+    // Locale-free twins of isProxy / type for the diagnostic report payload
+    // (the display fields above are t()-localized at capture time; the report
+    // schema only stores enums and renders in the VIEWER's language).
+    const proxyCode = determineProxyCode(advancedData);
+    const ipTypeCode = determineTypeCode(advancedData);
+
+    return { isProxy, type, qualityScore, proxyProtocol, proxyProvider, isNativeIP, proxyCode, ipTypeCode };
 }
 
-// 判断是否代理
+// Determine if it is a proxy
 function determineIsProxy(advancedData, t) {
 
-    if (advancedData.tags === 'sign_in_required') {
-        return 'sign_in_required';
+    if (gatedSentinel(advancedData.tags)) {
+        return advancedData.tags;
     } else if (advancedData.tags.isProxyOrVPN && advancedData.proxyProtocol !== 'unknown') {
         return t('ipInfos.advancedData.proxyYes');
     } else if (advancedData.tags.isProxyOrVPN) {
@@ -57,8 +90,28 @@ function determineIsProxy(advancedData, t) {
     }
 }
 
-// 判断代理类型
+// Locale-free code for determineIsProxy — same branch order, enum output.
+// undefined when the data is gated (the report then omits the field).
+function determineProxyCode(advancedData) {
+    if (gatedSentinel(advancedData.tags)) return undefined;
+    if (advancedData.tags.isProxyOrVPN && advancedData.proxyProtocol !== 'unknown') return 'yes';
+    if (advancedData.tags.isProxyOrVPN) return 'maybe';
+    if (!advancedData.tags.isProxyOrVPN) return 'no';
+    return 'unknown';
+}
+
+// Locale-free code for determineType.
+function determineTypeCode(advancedData) {
+    if (gatedSentinel(advancedData.operatorType)) return undefined;
+    const codes = { Business: 'business', Residential: 'residential', Wireless: 'wireless', Hosting: 'hosting' };
+    return codes[advancedData.operatorType] ?? 'unknown';
+}
+
+// Determine proxy type
 function determineType(advancedData, t) {
+    if (gatedSentinel(advancedData.operatorType)) {
+        return advancedData.operatorType;
+    }
     switch (advancedData.operatorType) {
         case 'Business':
             return t('ipInfos.advancedData.type.Business');
@@ -68,21 +121,8 @@ function determineType(advancedData, t) {
             return t('ipInfos.advancedData.type.Wireless');
         case 'Hosting':
             return t('ipInfos.advancedData.type.Hosting');
-        case 'VPN':
-            if (advancedData.proxyProtocol === 'unknown') {
-                return t('ipInfos.advancedData.type.Hosting');
-            }
         default:
-            return advancedData.operatorType || t('ipInfos.advancedData.type.unknownType');
-    }
-}
-
-// 判断代理协议
-function determineProtocol(advancedData, t) {
-    if (advancedData.proxyProtocol === 'unknown' || !advancedData.proxyProtocol) {
-        return t('ipInfos.advancedData.proxyUnknownProtocol');
-    } else {
-        return advancedData.proxyProtocol;
+            return t('ipInfos.advancedData.type.unknownType');
     }
 }
 

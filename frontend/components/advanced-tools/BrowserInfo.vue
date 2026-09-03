@@ -1,171 +1,125 @@
 <template>
-    <!-- Browser Info -->
-    <div class="browser-info-section my-4">
-        <div class="text-secondary">
+    <div class="browser-info-section my-4 space-y-4">
+        <!-- Top note -->
+        <div class="text-sm text-muted-foreground space-y-1.5">
             <p>{{ t('browserinfo.Note') }}</p>
             <p>{{ t('browserinfo.Note2') }}</p>
         </div>
-        <div class="row">
-            <div class="col-12 mb-3">
-                <div class="card jn-card" :class="{ 'dark-mode dark-mode-border': isDarkMode }">
 
-                    <div class="card-body">
-                        <Transition name="slide-fade" mode="out-in">
-                            <div id="browserInfoResult" class="row" v-if="checkingStatus === 'finished'">
-                                <div class="col-lg-8 col-md-8 col-12 mb-4">
-                                    <div class="h-100">
-                                        <div class="card-body row"
-                                            :class="[isMobile ? 'p-1 border-1 border-bottom' : '']">
-                                            <h3 class="mb-4">{{ t('browserinfo.browser.Infos') }} <i
-                                                    class="bi bi-person-workspace"></i></h3>
-                                            <div class="jn-ua-box w-100">
-                                                <div class="alert alert-success jn-ua-box">
-                                                    <span class="mb-1 badge text-bg-success">User Agent</span>
-                                                    <span><span class="jn-code-font ">{{ userAgent.ua }}</span> <i
-                                                            :class="copiedStatus ? 'bi bi-clipboard-check-fill' : 'bi bi-clipboard-plus'"
-                                                            @click="copyToClipboard(userAgent.ua)" role="button"
-                                                            aria-label="Copy UA"></i></span>
-                                                </div>
-                                            </div>
+        <Transition name="slide-fade" mode="out-in">
+            <!-- Loading / error state; the chunk phase before it shows
+                 ToolLoadingSkeleton instead. -->
+            <div v-if="checkingStatus !== 'finished'" class="flex justify-center py-12 text-sm">
+                <Spinner v-if="checkingStatus === 'running'" class="size-6 text-info" />
+                <p v-else-if="checkingStatus === 'error'" class="text-destructive">{{ errorMsg }}</p>
+            </div>
 
-                                            <div class="col-lg-6 col-md-6 col-12">
-                                                <div class="jn-detail">
-                                                    <span>
-                                                        {{ t('browserinfo.browser.browserName') }}
-                                                    </span>
-                                                    <span class="jn-con-title card-title mt-1">
-                                                        {{ userAgent.browser.name }} {{ userAgent.browser.version }}
-                                                    </span>
-                                                </div>
-                                                <div class="jn-detail">
-                                                    <span>
-                                                        {{ t('browserinfo.browser.engineName') }}
-                                                    </span>
-                                                    <span class="jn-con-title card-title mt-1">
-                                                        {{ userAgent.engine.name }} {{ userAgent.engine.version }}
-                                                    </span>
-                                                </div>
-                                                <div class="jn-detail">
-                                                    <span>
-                                                        {{ t('browserinfo.browser.osName') }}
-                                                    </span>
-                                                    <span class="jn-con-title card-title mt-1">
-                                                        {{ userAgent.os.name }} {{ userAgent.os.version }}
-                                                    </span>
-                                                </div>
-                                                <div class="jn-detail">
-                                                    <span>
-                                                        {{ t('browserinfo.browser.language') }}
-                                                    </span>
-                                                    <span class="jn-con-title card-title mt-1">
-                                                        {{ otherInfos.browserLanguage }}
-                                                    </span>
-                                                </div>
-                                                <div class="jn-detail">
-                                                    <span>
-                                                        {{ t('browserinfo.browser.cookieEnabled') }}
-                                                    </span>
-                                                    <span class="jn-con-title card-title mt-1">
-                                                        {{ otherInfos.cookieEnabled?
-                                                        t('browserinfo.browser.cookieEnabledTrue'):t('browserinfo.browser.cookieEnabledFalse')
-                                                        }}
-                                                    </span>
-                                                </div>
-                                            </div>
+            <!-- Result: Browser (2/3) + Fingerprint (1/3), then full-width components breakdown. -->
+            <Card v-else id="browserInfoResult">
+                <CardContent class="p-4 md:p-6 space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- Browser area -->
+                        <section class="md:col-span-2 space-y-4">
+                            <header class="flex items-center gap-2">
+                                <BriefcaseBusiness class="size-5 text-muted-foreground" />
+                                <h3 class="text-lg font-semibold tracking-tight m-0">
+                                    {{ t('browserinfo.browser.Infos') }}
+                                </h3>
+                            </header>
 
-                                            <div class="col-lg-6 col-md-6 col-12">
-                                                <div class="jn-detail">
-                                                    <span>
-                                                        {{ t('browserinfo.browser.deviceVendor') }}
-                                                    </span>
-                                                    <span class="jn-con-title card-title mt-1">
-                                                        {{ userAgent.device.vendor }} {{ userAgent.device.model }}
-                                                    </span>
-                                                </div>
-                                                <div class="jn-detail">
-                                                    <span>
-                                                        {{ t('browserinfo.browser.cpuArchitecture') }}
-                                                    </span>
-                                                    <span class="jn-con-title card-title mt-1">
-                                                        {{ userAgent.device.cpu ? userAgent.device.cpu.architecture :
-                                                        'N/A'
-                                                        }}
-                                                    </span>
-                                                </div>
-                                                <div class="jn-detail">
-                                                    <span>
-                                                        {{ t('browserinfo.browser.gpu') }}
-                                                    </span>
-                                                    <span class="jn-con-title card-title mt-1">
-                                                        {{ gpu }}
-                                                    </span>
-                                                </div>
-                                                <div class="jn-detail">
-                                                    <span>
-                                                        {{ t('browserinfo.browser.cpuCores') }}
-                                                    </span>
-                                                    <span class="jn-con-title card-title mt-1">
-                                                        {{ otherInfos.cpucores }}
-                                                    </span>
-                                                </div>
-                                            </div>
+                            <!-- UA hero block —— success color emphasis -->
+                            <div class="rounded-lg border border-success/30 bg-success/10 p-3 space-y-2">
+                                <div class="flex items-center justify-between gap-2">
+                                    <Badge class="bg-success text-success-foreground border-transparent font-normal">
+                                        User Agent
+                                    </Badge>
+                                    <CopyButton :value="userAgent.ua"
+                                        class="-mr-1 hover:bg-success/10"
+                                        aria-label="Copy UA" />
+                                </div>
+                                <p class="font-mono text-sm leading-relaxed wrap-break-word">{{ userAgent.ua }}</p>
+                            </div>
 
-                                        </div>
+                            <!-- Field dl grid -->
+                            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                                <div v-for="f in browserFields" :key="f.label">
+                                    <dt class="text-sm text-muted-foreground mb-0.5">{{ f.label }}</dt>
+                                    <dd class="text-base font-medium wrap-break-word">{{ f.value || '—' }}</dd>
+                                </div>
+                            </dl>
+                        </section>
+
+                        <!-- Fingerprint area -->
+                        <section class="space-y-4">
+                            <header class="flex items-center gap-2">
+                                <Fingerprint class="size-5 text-muted-foreground" />
+                                <h3 class="text-lg font-semibold tracking-tight m-0">
+                                    {{ t('browserinfo.fingerprint.Infos') }}
+                                </h3>
+                            </header>
+
+                            <!-- Fingerprint hero block —— info color emphasis (different from UA) -->
+                            <div class="rounded-lg border border-info/30 bg-info/10 p-3 space-y-2">
+                                <Badge class="bg-info text-info-foreground border-transparent font-normal">
+                                    {{ t('browserinfo.fingerprint.fingerprint') }}
+                                </Badge>
+                                <p class="font-mono text-sm wrap-break-word">{{ fingerprint }}</p>
+                            </div>
+
+                            <!-- Exclude options list -->
+                            <div>
+                                <p class="text-sm mb-2">{{ t('browserinfo.fingerprint.changeOption') }}</p>
+                                <div class="rounded-lg border bg-card divide-y">
+                                    <div v-for="(_, key) in excludeOptions" :key="key"
+                                        class="flex items-center justify-between gap-2 px-3 py-2">
+                                        <label :for="key" class="text-sm cursor-pointer select-none">
+                                            {{ t(`browserinfo.options.${key}`) }}
+                                        </label>
+                                        <Switch :id="key" v-model="excludeOptions[key]" />
                                     </div>
                                 </div>
-
-                                <div class="col-lg-4 col-md-4 col-12 mb-4">
-                                    <div class="h-100" :class="{ 
-                                    'dark-mode dark-mode-border': isDarkMode,
-                                    'card': !isMobile
-                                    }">
-                                        <div class="card-body" :class="[isMobile ? 'p-1' : '']">
-                                            <h3 class="mb-4">{{ t('browserinfo.fingerprint.Infos') }} <i
-                                                    class="bi bi-fingerprint"></i></h3>
-                                            <div class="jn-ua-box w-100">
-                                                <div :class="[isMobile ? 'jn-fp-box-mobile' : '']"
-                                                    class="alert alert-primary jn-ua-box">
-                                                    <span class="mb-1 badge text-bg-primary">{{
-                                                        t('browserinfo.fingerprint.fingerprint') }}</span>
-                                                    <span class="jn-code-font ">{{ fingerprint }}</span>
-                                                </div>
-                                            </div>
-
-                                            <p>{{ t('browserinfo.fingerprint.changeOption') }}</p>
-
-                                            <div class="row g-1 m-1">
-                                                <div v-for="(value, key) in excludeOptions" :key="key"
-                                                    class="form-check form-switch col-6">
-                                                    <input class="form-check-input" type="checkbox" :id="key"
-                                                        v-model="excludeOptions[key]" />
-                                                    <label class="form-check-label" :for="key">
-                                                        {{ t(`browserinfo.options.${key}`) }}
-                                                    </label>
-                                                </div>
-                                            </div>
-                                            <div class="alert alert-light opacity-75 mt-4" role="alert">
-                                                <i class="bi bi-info-circle"></i> {{
-                                                t('browserinfo.fingerprint.browserTips') }}
-                                            </div>
-
-                                        </div>
-                                    </div>
-                                </div>
-
                             </div>
-                            <div v-else class="jn-placeholder ">
-                                <span v-if="checkingStatus === 'running'">
-                                    <span class="spinner-grow spinner-grow-sm text-success" aria-hidden="true"></span>
-                                    <span class="text-success">&nbsp;{{ t('browserinfo.calculating') }}</span>
-                                </span>
-                                <p v-if="checkingStatus === 'error'" class="text-danger">{{ errorMsg }}</p>
+
+                            <!-- Hint -->
+                            <div class="flex items-start gap-2 p-3 rounded-md bg-muted/50 text-xs text-muted-foreground">
+                                <Info class="size-3.5 mt-0.5 shrink-0" />
+                                <span class="leading-relaxed">{{ t('browserinfo.fingerprint.browserTips') }}</span>
                             </div>
-                        </Transition>
+                        </section>
                     </div>
 
-                </div>
-            </div>
-        </div>
+                    <!-- Components breakdown — each block has its own scrollable box so
+                         long arrays (fonts) don't blow up page height. -->
+                    <section class="space-y-3 border-t pt-6">
+                        <header class="flex items-center gap-2">
+                            <Microscope class="size-5 text-muted-foreground" />
+                            <h3 class="text-lg font-semibold tracking-tight m-0">
+                                {{ t('browserinfo.components.title') }}
+                            </h3>
+                        </header>
+                        <p class="text-sm text-muted-foreground">{{ t('browserinfo.components.note') }}</p>
+
+                        <div class="rounded-lg border bg-card divide-y">
+                            <div v-for="(value, key) in components" :key="key" class="p-3 space-y-2">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <Badge variant="outline" class="font-mono shrink-0">{{ key }}</Badge>
+                                    <span class="text-xs text-muted-foreground">
+                                        {{ t(`browserinfo.options.${key}`) }}
+                                    </span>
+                                </div>
+                                <div class="max-h-64 overflow-auto rounded bg-muted/40 p-2 space-y-0.5">
+                                    <div v-for="row in flatten(value)" :key="row.key"
+                                        class="flex gap-3 text-xs">
+                                        <code class="text-muted-foreground shrink-0 font-mono">{{ row.key }}</code>
+                                        <span class="font-mono break-all">{{ row.value }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </CardContent>
+            </Card>
+        </Transition>
     </div>
 </template>
 
@@ -173,52 +127,112 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useMainStore } from '@/store';
 import { useI18n } from 'vue-i18n';
+import { emitAppEvent } from '@/utils/app-events';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Spinner } from '@/components/ui/spinner';
+import { BriefcaseBusiness, Fingerprint, Info, Microscope } from '@lucide/vue';
+import { Card, CardContent } from '@/components/ui/card';
+import CopyButton from '@/components/widgets/CopyButton.vue';
 
 const { t } = useI18n();
 
 const store = useMainStore();
-const isDarkMode = computed(() => store.isDarkMode);
 const isMobile = computed(() => store.isMobile);
 
 const fingerprint = ref('');
+// Per-component data from `result.components`; powers the breakdown panel.
+const components = ref({});
+// One toggle per component thumbmarkjs's factory registers — keep in sync
+// when upstream adds a new one (also need `options.<key>` in all 4 locales).
 const excludeOptions = ref({
     'audio': true,
     'canvas': true,
     'fonts': true,
     'hardware': true,
     'locales': true,
-    'permissions': true,
+    'permissions': false,
     'plugins': true,
     'screen': true,
     'system': true,
     'webgl': true,
     'math': true,
+    'intl': true,
+    'mediaDevices': true,
+    'speech': true,
+    'mathml': true,
+    'webrtc': true,
 });
 const errorMsg = ref('');
 const checkingStatus = ref('idle');
-const copiedStatus = ref(false);
 
 const userAgent = ref('');
 const gpu = ref('');
 const otherInfos = ref({});
 
-// 获取 GPU 信息
-const getGPU = async () => {
+const fmtList = (arr) => Array.isArray(arr) && arr.length ? arr.join(', ') : '—';
+const fmtDisplay = (d) => d
+    ? `${d.width}×${d.height} · ${d.colorDepth}-bit · ${d.pixelRatio}× DPR`
+    : '—';
+const fmtConnection = (c) => {
+    if (!c) return 'N/A';
+    const parts = [];
+    if (c.effectiveType) parts.push(c.effectiveType);
+    if (c.downlink) parts.push(`${c.downlink} Mbps`);
+    if (typeof c.rtt === 'number') parts.push(`${c.rtt} ms RTT`);
+    if (c.saveData) parts.push('save-data');
+    return parts.length ? parts.join(' · ') : '—';
+};
+// DNT spec: '1' enabled, '0' disabled, anything else = unset.
+const fmtDNT = (v) => v === '1' ? t('browserinfo.browser.doNotTrackOn')
+    : v === '0' ? t('browserinfo.browser.doNotTrackOff')
+    : t('browserinfo.browser.doNotTrackUnset');
+const fmtPdfViewer = (b) => b === true ? t('browserinfo.browser.pdfViewerYes')
+    : b === false ? t('browserinfo.browser.pdfViewerNo')
+    : '—';
+
+// Order: identity → locale → display → network → input → privacy → capabilities.
+const browserFields = computed(() => {
+    if (!userAgent.value || !userAgent.value.browser) return [];
+    const o = otherInfos.value;
+    return [
+        { label: t('browserinfo.browser.browserName'),     value: `${userAgent.value.browser.name || ''} ${userAgent.value.browser.version || ''}`.trim() },
+        { label: t('browserinfo.browser.deviceVendor'),    value: `${userAgent.value.device.vendor || ''} ${userAgent.value.device.model || ''}`.trim() },
+        { label: t('browserinfo.browser.engineName'),      value: `${userAgent.value.engine.name || ''} ${userAgent.value.engine.version || ''}`.trim() },
+        { label: t('browserinfo.browser.cpuArchitecture'), value: userAgent.value.device.cpu ? userAgent.value.device.cpu.architecture : 'N/A' },
+        { label: t('browserinfo.browser.osName'),          value: `${userAgent.value.os.name || ''} ${userAgent.value.os.version || ''}`.trim() },
+        { label: t('browserinfo.browser.gpu'),             value: gpu.value },
+        { label: t('browserinfo.browser.languages'),       value: fmtList(o.languages) },
+        { label: t('browserinfo.browser.timezone'),        value: o.timezone },
+        { label: t('browserinfo.browser.display'),         value: fmtDisplay(o.display) },
+        { label: t('browserinfo.browser.connection'),      value: fmtConnection(o.connection) },
+        { label: t('browserinfo.browser.touchPoints'),     value: typeof o.touchPoints === 'number' ? String(o.touchPoints) : '—' },
+        { label: t('browserinfo.browser.cpuCores'),        value: o.cpucores },
+        { label: t('browserinfo.browser.doNotTrack'),      value: fmtDNT(o.doNotTrack) },
+        { label: t('browserinfo.browser.pdfViewer'),       value: fmtPdfViewer(o.pdfViewer) },
+        { label: t('browserinfo.browser.cookieEnabled'),   value: o.cookieEnabled
+            ? t('browserinfo.browser.cookieEnabledTrue')
+            : t('browserinfo.browser.cookieEnabledFalse') },
+    ];
+});
+
+// Raw WebGL renderer — same string sites read via UNMASKED_RENDERER_WEBGL.
+const getGPU = () => {
     try {
-        const { getGPUTier } = await import('detect-gpu');
-        const gpuTier = await getGPUTier();
-        if (gpuTier && gpuTier.gpu) {
-            gpu.value = gpuTier.gpu.toLowerCase().replace(/(^\w|\s\w)/g, m => m.toUpperCase());
-        } else {
-            gpu.value = 'N/A';
-        }
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        if (!gl) { gpu.value = 'N/A'; return; }
+        const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+        const renderer = dbg
+            ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)
+            : gl.getParameter(gl.RENDERER);
+        gpu.value = renderer || 'N/A';
     } catch (error) {
         console.error('Error getting GPU info:', error);
-        throw error;
+        gpu.value = 'N/A';
     }
-}
+};
 
-// 获取 UA
 const getUA = async () => {
     try {
         const { UAParser } = await import('ua-parser-js');
@@ -231,144 +245,141 @@ const getUA = async () => {
     }
 };
 
-// 获取其他信息
-const getOtherBrowserInfo = async () => {
+const getOtherBrowserInfo = () => {
     try {
-        otherInfos.value.browserLanguage = navigator.language;
-        otherInfos.value.cookieEnabled = navigator.cookieEnabled;
-        otherInfos.value.cpucores = navigator.hardwareConcurrency;
+        otherInfos.value = {
+            cookieEnabled: navigator.cookieEnabled,
+            cpucores: navigator.hardwareConcurrency,
+            // Full Accept-Language preference order, not just the primary.
+            languages: navigator.languages || [navigator.language].filter(Boolean),
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            display: {
+                width: screen.width,
+                height: screen.height,
+                colorDepth: screen.colorDepth,
+                pixelRatio: window.devicePixelRatio,
+            },
+            // Chrome / Edge / Android only — falsy elsewhere.
+            connection: navigator.connection
+                ? {
+                    effectiveType: navigator.connection.effectiveType,
+                    downlink: navigator.connection.downlink,
+                    rtt: navigator.connection.rtt,
+                    saveData: navigator.connection.saveData,
+                }
+                : null,
+            touchPoints: navigator.maxTouchPoints,
+            doNotTrack: navigator.doNotTrack,
+            pdfViewer: navigator.pdfViewerEnabled,
+        };
     } catch (error) {
         console.error('Error getting other browser info:', error);
         throw error;
     }
 };
 
-// 获取指纹计算的排除选项
+// Flatten a nested component value into `{ key: 'a.b[0]', value }` rows so
+// the breakdown panel renders one leaf per row instead of a JSON blob.
+const flatten = (value, prefix = '') => {
+    const rows = [];
+    if (value === null || value === undefined) {
+        rows.push({ key: prefix || '·', value: String(value) });
+        return rows;
+    }
+    if (typeof value !== 'object') {
+        rows.push({ key: prefix || '·', value: String(value) });
+        return rows;
+    }
+    if (Array.isArray(value)) {
+        if (value.length === 0) {
+            rows.push({ key: prefix || '·', value: '[]' });
+        } else {
+            value.forEach((item, i) => {
+                rows.push(...flatten(item, prefix ? `${prefix}[${i}]` : `[${i}]`));
+            });
+        }
+        return rows;
+    }
+    const keys = Object.keys(value);
+    if (keys.length === 0) {
+        rows.push({ key: prefix || '·', value: '{}' });
+    } else {
+        keys.forEach(k => {
+            rows.push(...flatten(value[k], prefix ? `${prefix}.${k}` : k));
+        });
+    }
+    return rows;
+};
+
 const getExcludeOptions = async () => {
     const results = [];
     const checkOptions = (options, prefix = '') => {
         for (const key in options) {
             const value = options[key];
             const fullPath = prefix ? `${prefix}.${key}` : key;
-            if (typeof value === 'object') {
-                checkOptions(value, fullPath);
-            } else if (!value) {
-                results.push(fullPath);
-            }
+            if (typeof value === 'object') checkOptions(value, fullPath);
+            else if (!value) results.push(fullPath);
         }
     };
-
     checkOptions(excludeOptions.value);
     return results;
 };
 
-// 获取指纹
 const getFingerPrint = async () => {
     fingerprint.value = t('browserinfo.calculating');
     try {
-        let excludes = await getExcludeOptions();
-        const { getFingerprint, setOption } = await import('@thumbmarkjs/thumbmarkjs');
-        setOption('exclude', excludes);
-        const getFP = await getFingerprint();
-        fingerprint.value = getFP;
+        const excludes = await getExcludeOptions();
+        const { Thumbmark } = await import('@thumbmarkjs/thumbmarkjs');
+        // `stabilize: []` overrides the default ['private', 'iframe'] — the
+        // library otherwise unconditionally drops permissions (the 'iframe'
+        // rule has no browsers filter, fires everywhere) and silently masks
+        // canvas/audio/fonts on private mode. Our toggles are the only gate.
+        const tm = new Thumbmark({ exclude: excludes, stabilize: [] });
+        const result = await tm.get();
+        fingerprint.value = result.thumbmark;
+        components.value = result.components || {};
     } catch (error) {
         console.error('Error getting fingerprint:', error);
         throw error;
     }
 };
 
-// 获取全部
 const getAll = async () => {
     try {
         checkingStatus.value = 'running';
-        await Promise.all([
-            getUA(),
-            getFingerPrint(),
-            getGPU(),
-            getOtherBrowserInfo()
-        ]);
+        await Promise.all([getUA(), getFingerPrint(), getGPU(), getOtherBrowserInfo()]);
         checkingStatus.value = 'finished';
+        // Domain event for the report collector. Deliberately excludes the
+        // fingerprint hash and components blob — they never enter a report.
+        emitAppEvent('browserinfo:finished', {
+            userAgent: userAgent.value,
+            otherInfos: otherInfos.value,
+        });
     } catch (error) {
         console.error('Error during checks:', error);
         checkingStatus.value = 'error';
         errorMsg.value = t('browserinfo.calError');
     }
-}
-
-// 复制
-const copyToClipboard = async (ua) => {
-    try {
-        await navigator.clipboard.writeText(ua);
-        copiedStatus.value = true;
-        setTimeout(() => {
-            copiedStatus.value = false;
-        }, 5000);
-    } catch (err) {
-        console.error('Copy error:', err);
-    }
 };
 
 onMounted(() => {
     checkingStatus.value = 'running';
-    setTimeout(() => {
-        getAll();
-    }, 1000);
+    getAll();
 });
 
-// 监控排除选项
-watch(excludeOptions, (newVal, oldVal) => {
-    getFingerPrint();
-}, { immediate: true, deep: true });
-
+watch(excludeOptions, () => { getFingerPrint(); }, { immediate: true, deep: true });
 </script>
 
 <style scoped>
-.jn-placeholder {
-    height: 16pt;
-}
-
-.jn-ua-box {
-    height: fit-content;
-    display: flex;
-    flex-direction: column;
-}
-
-.jn-ua-box .badge {
-    width: fit-content;
-}
-
-.jn-code-font {
-    font-family: "IntelOne Mono", "Courier New", "Courier", "monospace";
-    font-weight: 400;
-}
-
-.jn-fp-box-mobile {
-    min-height: 80pt;
-}
-
-.slide-fade-enter-active {
-    transition: all 0.3s ease-out;
-}
-
+.slide-fade-enter-active,
 .slide-fade-leave-active {
     transition: all 0.3s ease-out;
 }
-
 .slide-fade-enter-from {
     transform: translateY(60px);
     opacity: 0;
 }
-
 .slide-fade-leave-to {
     opacity: 0;
-}
-
-.jn-detail {
-    display: flex;
-    flex-direction: column;
-    align-content: flex-start;
-    align-items: flex-start;
-    flex-wrap: wrap;
-    margin-bottom: 10pt;
 }
 </style>

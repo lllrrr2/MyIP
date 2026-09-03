@@ -1,225 +1,239 @@
 <template>
     <!-- Advanced Tools -->
-    <div class="advanced-tools-section mb-4">
-        <div class="jn-title2">
-            <h2 id="AdvancedTools" :class="{ 'mobile-h2': isMobile }">🧰 {{ t('advancedtools.Title') }}</h2>
+    <section class="advanced-tools-section mb-10">
+        <!-- Header -->
+        <header class="mb-2 flex flex-col items-start justify-between gap-4">
+            <div class="flex flex-row items-center justify-between gap-4 w-full">
+            <h2 id="AdvancedTools" class="m-0 flex min-w-0 flex-1 items-center gap-2 text-xl md:text-3xl font-semibold tracking-tight leading-tight">
+                🧰 {{ t('advancedtools.Title') }}
+            </h2>
+            </div>
+            <div class="text-base text-muted-foreground">
+                <p v-if="!isSimpleMode">{{ t('advancedtools.Note') }}</p>
+            </div>
+        </header>
 
-        </div>
-        <div class="text-secondary">
-            <p>{{ t('advancedtools.Note') }}</p>
-        </div>
-        <div class="row">
-            <div class="col-lg-3 col-md-6 col-12 mb-4" v-for="(card, index) in cards.filter(card => card.enabled)"
-                :key="index">
-                <div class="jn-adv-card card jn-card" :class="{ 'dark-mode dark-mode-border': isDarkMode }">
-                    <div class="card-body" @click.prevent="navigateAndToggleOffcanvas(card.path)" role="button">
-                        <h3 :class="[isMobile ? 'mobile-h3' : 'fs-4']" class="jn-adv-title">
-                            <i class="bi bi-arrow-up-right-circle"></i> {{ t(card.titleKey) }}
+        <!-- Card grid. Each card is a real <a> to the standalone /tools/:slug
+             page, so ⌘/Ctrl-click, middle-click and "open in new tab" all work.
+             A plain left-click (or Enter / Space) is intercepted to open the
+             in-page drawer instead. A dedicated ↗ corner button always opens the
+             standalone page in a new tab. -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <Card v-for="card in enabledCards" :key="card.slug"
+                :data-adv-slug="card.slug"
+                class="keyboard-shortcut-card jn-card jn-adv-card group relative overflow-visible transition-transform duration-300 ease-out hover:-translate-y-1.5 data-[keyboard-hover=true]:ring-2 data-[keyboard-hover=true]:ring-green-500/50">
+                <a :href="card.noStandalone ? `/?tool=${card.slug}` : `/tools/${card.slug}`"
+                    class="block cursor-pointer no-underline text-inherit"
+                    @click="onCardClick($event, card.slug)"
+                    @keydown.enter.prevent="openTool(card.slug)"
+                    @keydown.space.prevent="openTool(card.slug)">
+                    <CardContent class="p-4">
+                        <h3 class="text-xl font-medium text-primary mb-2 pr-10">
+                            <PanelBottomOpen
+                                class="inline size-[1em] align-[-0.15em] mr-1.5 transition-colors duration-300" />
+                            {{ t(card.titleKey) }}
                         </h3>
-                        <p class="opacity-75">{{ t(card.noteKey) }}</p>
-                        <span :class="[isDarkMode ? 'jn-icon-dark' : 'jn-icon']">{{ card.icon }}</span>
+                        <!-- Description -->
+                        <p class="text-base text-muted-foreground line-clamp-2 min-h-10">
+                            {{ t(card.noteKey) }}
+                        </p>
+                        <!-- Top right emoji -->
+                        <span class="jn-emoji" aria-hidden="true">{{ card.icon }}</span>
+                    </CardContent>
+                </a>
+
+            </Card>
+        </div>
+
+        <!-- Tool details Drawer -->
+        <Drawer :open="isOpen" @update:open="onOpenChange" :dismissible="true">
+            <DrawerContent :title="activeTool ? t(activeTool.titleKey) : t('advancedtools.Title')"
+                :safe-area-top="isMobile || isFullScreen"
+                :class="['jn-tools-drawer overflow-hidden', (isMobile || isFullScreen) ? 'h-full rounded-none' : 'h-[85vh]']">
+                <!-- Drawer internal header -->
+                <div class="flex items-center gap-2 px-4 pt-1 pb-3 jn-drawer-header shrink-0">
+                    <button v-if="!isMobile" type="button"
+                        class="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        @click="fullScreen" :aria-label="isFullScreen ? 'Exit full screen' : 'Full screen'">
+                        <Maximize v-if="!isFullScreen" class="size-4" />
+                        <Minimize v-else class="size-4" />
+                    </button>
+                    <span v-if="activeTool" class="flex-1 text-base md:text-lg font-medium truncate"
+                        :class="isMobile ? 'text-left' : 'text-center'">
+                        <span class="mr-1">{{ activeTool.emoji }}</span>{{ t(activeTool.titleKey) }}
+                    </span>
+                    <span v-else class="flex-1" />
+                    <!-- Open the current tool as a standalone page (hidden in a
+                         PWA window, which has no new-tab affordance, and for
+                         noStandalone tools, which have no such page) -->
+                    <a v-if="activeTool && !isPwa && !activeTool.noStandalone" :href="`/tools/${activeTool.slug}`"
+                        target="_blank" rel="noopener"
+                        class="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        :title="t('advancedtools.OpenInNewTab')" :aria-label="t('advancedtools.OpenInNewTab')">
+                        <SquareArrowOutUpRight class="size-4" />
+                    </a>
+                    <DrawerClose
+                        class="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" />
+                </div>
+                <!-- Content area (scrollable) -->
+                <div class="flex-1 overflow-y-auto px-1 md:px-2 pb-6" ref="scrollContainer">
+                    <div :class="isMobile ? 'w-full px-3' : 'jn-canvas-width px-6'">
+                        <component :is="activeComponent" v-if="activeComponent" />
                     </div>
                 </div>
-            </div>
-        </div>
-        <div :data-bs-theme="isDarkMode ? 'dark' : ''" class="offcanvas offcanvas-bottom" tabindex="-1"
-            :class="[isMobile ? 'h-100' : '']" id="offcanvasTools" aria-labelledby="offcanvasToolsLabel">
-            <div class="offcanvas-header d-flex justify-content-end jn-offcanvas-header">
-                <button v-if="!isMobile" type="button" class="btn opacity-50 jn-bold" @click="fullScreen">
-                    <span v-if="!isFullScreen">
-                        <i class="bi bi-arrows-fullscreen"></i>
-                    </span>
-                    <span v-else>
-                        <i class="bi bi-fullscreen-exit"></i>
-                    </span>
-                </button>
-                <span v-if="openedCard >= 0" class="fw-medium"
-                    :class="[isMobile ? 'mobile-h2 text-left' : 'fs-5 text-center ms-auto']">{{
-                    cards[openedCard].icon }}
-                    {{ t(cards[openedCard].titleKey) }}</span>
+            </DrawerContent>
+        </Drawer>
 
-                <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"
-                    @click="resetNavigatorURL()"></button>
-            </div>
-            <div class="offcanvas-body pt-0" :class="[isMobile ? ' w-100' : 'jn-canvas-width']" ref="scrollContainer">
-                <router-view></router-view>
-            </div>
-        </div>
-    </div>
-
+        <!-- Section banner slot (data-driven; see InfoBanner.vue) -->
+        <InfoBanner section="advanced" />
+    </section>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, reactive } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, computed, onMounted, defineAsyncComponent } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useMainStore } from '@/store';
-import { Offcanvas } from 'bootstrap';
 import { useI18n } from 'vue-i18n';
-import { trackEvent } from '@/utils/use-analytics';
+import { trackEvent } from '@/utils/analytics';
+import { ADVANCED_TOOLS, TOOL_BY_SLUG } from '@/data/tools.js';
+import { isRunningAsPwa } from '@/utils/pwa.js';
+import { Drawer, DrawerContent, DrawerClose } from '@/components/ui/drawer';
+import { Card, CardContent } from '@/components/ui/card';
+import { ToolLoadingSkeleton } from '@/components/ui/tool-loading-skeleton';
+import InfoBanner from '@/components/widgets/InfoBanner.vue';
+import { Maximize, Minimize, PanelBottomOpen, SquareArrowOutUpRight } from '@lucide/vue';
 
 const { t } = useI18n();
 
 const store = useMainStore();
-const isDarkMode = computed(() => store.isDarkMode);
 const isMobile = computed(() => store.isMobile);
+// Running as an installed PWA → hide the "open in new tab" affordance (a PWA
+// window has no tab strip; it would pop out to the browser). See utils/pwa.js.
+const isPwa = isRunningAsPwa();
 const configs = computed(() => store.configs);
-
+const userPreferences = computed(() => store.userPreferences);
+const isSimpleMode = computed(() => userPreferences.value.simpleMode);
 const scrollContainer = ref(null);
+const route = useRoute();
 const router = useRouter();
 
-const cards = reactive([
-    { path: '/pingtest', icon: '⏱️', titleKey: 'pingtest.Title', noteKey: 'advancedtools.PingTestNote', enabled: true },
-    { path: '/mtrtest', icon: '📡', titleKey: 'mtrtest.Title', noteKey: 'advancedtools.MTRTestNote', enabled: true },
-    { path: '/ruletest', icon: '🚏', titleKey: 'ruletest.Title', noteKey: 'advancedtools.RuleTestNote', enabled: true },
-    { path: '/dnsresolver', icon: '🔦', titleKey: 'dnsresolver.Title', noteKey: 'advancedtools.DNSResolverNote', enabled: true },
-    { path: '/censorshipcheck', icon: '🚧', titleKey: 'censorshipcheck.Title', noteKey: 'advancedtools.CensorshipCheck', enabled: true },
-    { path: '/whois', icon: '📓', titleKey: 'whois.Title', noteKey: 'advancedtools.Whois', enabled: true },
-    { path: '/macchecker', icon: '🗄️', titleKey: 'macchecker.Title', noteKey: 'advancedtools.MacChecker', enabled: true },
-    { path: '/browserinfo', icon: '🖥️', titleKey: 'browserinfo.Title', noteKey: 'advancedtools.BrowserInfo', enabled: true },
-    { path: '/securitychecklist', icon: '📋', titleKey: 'securitychecklist.Title', noteKey: 'advancedtools.SecurityChecklist', enabled: true },
-    { path: '/invisibilitytest', icon: '🫣', titleKey: 'invisibilitytest.Title', noteKey: 'advancedtools.InvisibilityTest', enabled: false }
-]);
+// Cards derive from the shared tool registry (frontend/data/tools.js). `icon`
+// is mapped from the registry's `emoji` so the template key stays stable.
+const cards = ADVANCED_TOOLS.map((tool) => ({ ...tool, icon: tool.emoji }));
+
+// Gate: the invisibility + enhanced DNS-leak tools only show on the original
+// site (they need the private API + sign-in). Reactive on configs, so they
+// appear the moment configs land — no fixed timeout needed.
+const enabledCards = computed(() =>
+    cards.filter((c) => !c.requiresOriginalSite || configs.value.originalSite),
+);
+
+// ── Drawer state, driven by the `?tool=<slug>` query on the home route ───────
+// `?tool=whois` ⇒ the drawer is open showing Whois. Closing clears the query.
+const activeTool = computed(() => {
+    const slug = route.query.tool;
+    return (typeof slug === 'string' && TOOL_BY_SLUG.get(slug)) || null;
+});
+const isOpen = computed(() => !!activeTool.value);
+
+// Resolve each tool's lazy component once and cache it, so re-renders don't
+// rebuild the async wrapper (which would remount the tool). The skeleton
+// covers the chunk download; `delay` keeps fast loads flash-free.
+const asyncToolCache = new Map();
+const activeComponent = computed(() => {
+    const tool = activeTool.value;
+    if (!tool) return null;
+    if (!asyncToolCache.has(tool.slug)) {
+        asyncToolCache.set(tool.slug, defineAsyncComponent({
+            loader: tool.component,
+            loadingComponent: ToolLoadingSkeleton,
+            delay: 200,
+        }));
+    }
+    return asyncToolCache.get(tool.slug);
+});
 
 const isFullScreen = ref(false);
-const openedCard = computed(() => store.currentPath.id);
 
-// 跳转到指定页面并打开
-const navigateAndToggleOffcanvas = (routePath) => {
-    router.push(routePath);
-    let capitalizedRoutePath = routePath.replace('/', '');
-    capitalizedRoutePath = capitalizedRoutePath.charAt(0).toUpperCase() + capitalizedRoutePath.slice(1);
-    trackEvent('Nav', 'NavClick', capitalizedRoutePath);
+// Open a tool in the in-page drawer (just sets the query; isOpen reacts).
+const openTool = (slug) => {
+    router.push({ path: '/', query: { tool: slug } });
+    const name = slug.charAt(0).toUpperCase() + slug.slice(1);
+    trackEvent('Nav', 'NavClick', name);
 };
 
-// 全屏显示
-const fullScreen = () => {
-    const offcanvas = document.getElementById('offcanvasTools');
-    if (offcanvas) {
-        offcanvas.style.transition = 'height 0.5s ease-in-out';
-        if (!isFullScreen.value) {
-            offcanvas.style.height = '100%';
-            isFullScreen.value = true;
-        } else {
-            offcanvas.style.height = '80%';
-            isFullScreen.value = false;
-        }
-        setTimeout(() => {
-            offcanvas.style.transition = '';
-        }, 500);
+// Card left-click: open the drawer. Modifier / middle clicks fall through to
+// the <a href> default so the browser opens the standalone page in a new tab.
+const onCardClick = (e, slug) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
+    e.preventDefault();
+    openTool(slug);
+};
+
+const onOpenChange = (val) => {
+    // Drawer closed (drag / overlay / Esc / close button) → drop the ?tool query.
+    if (!val) {
+        if (route.query.tool) router.push({ path: '/', query: {} });
+        isFullScreen.value = false;
     }
 };
 
-// 将浏览器地址重置
-const resetNavigatorURL = () => {
-    router.push('/');
-}
-
+// Full screen toggle: height determined by DrawerContent's class
+const fullScreen = () => {
+    isFullScreen.value = !isFullScreen.value;
+};
 
 onMounted(() => {
-    store.setMountingStatus('advancedtools', true);
-    setTimeout(() => {
-        if (configs.value.originalSite) {
-            cards.find(x => x.path === '/invisibilitytest').enabled = true;
-        }
-    }, 1500);
+    store.setMountingStatus('AdvancedTools', true);
 });
 
 defineExpose({
-    navigateAndToggleOffcanvas, fullScreen
+    openTool, fullScreen,
 });
 
 </script>
 
 <style scoped>
-.offcanvas.offcanvas-bottom {
-    height: 80%;
+.jn-emoji {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.75rem;
+    font-size: 1.6rem;
+    line-height: 1;
+    transition: transform 0.4s ease, text-shadow 0.4s ease;
+    pointer-events: none;
 }
 
-#offcanvasTools {
-    z-index: 10000;
+.jn-adv-card:hover .jn-emoji {
+    transform: translateY(-10pt) scale(1.8);
+    text-shadow: 0 0 10pt rgb(0 0 0 / 0.38);
 }
 
-.jn-h {
-    height: 80%;
+:global(.dark) .jn-adv-card:hover .jn-emoji {
+    text-shadow: 0 0 10pt rgb(255 255 255 / 0.15);
 }
 
-.jn-bold {
-    -webkit-text-stroke: 1px;
-    margin-left: -10pt;
-}
-
-.jn-bold:hover {
-    opacity: 1 !important;
-}
-
+/* Drawer content area width (desktop) */
 .jn-canvas-width {
     width: fit-content;
     margin: auto;
     max-width: 1400px;
 }
 
-
-.jn-adv-card {
-    display: block;
-    position: relative;
-    text-decoration: none;
-    z-index: 0;
-    overflow: visible;
+.jn-drawer-header {
+    border-bottom: 1px solid var(--border);
 }
 
-.jn-icon {
-    top: 4pt;
-    right: 6pt;
-    font-size: 1.6rem;
-    position: absolute;
-    transition: all 0.4s;
+/* Drawer root container needs flex-col, so that the header is fixed + content scrollable */
+.jn-tools-drawer {
+    display: flex;
+    flex-direction: column;
 }
 
-.jn-icon-dark {
-    top: 4pt;
-    right: 6pt;
-    font-size: 1.6rem;
-    position: absolute;
-    transition: all 0.4s;
-}
-
-.jn-adv-card:hover .jn-icon-dark {
-    transform: translateY(-10pt) scale(1.8);
-    text-shadow: 0 0 10pt #ffffff27;
-}
-
-.jn-adv-card:hover .jn-icon {
-    transform: translateY(-10pt) scale(1.8);
-    text-shadow: 0 0 10pt #00000060;
-}
-
-.jn-adv-title {
-    width: 85%;
-}
-
-.jn-offcanvas-header {
-    min-height: 40pt;
-    border-bottom: 1px solid #ababab3f;
-    transition: all 0.3s ease-out;
-}
-
-.jn-offcanvas-header-noborder {
-    min-height: 40pt;
-    border-bottom: 1px solid transparent;
-    transition: all 0.3s ease-out;
-}
-
-.slide-fade-enter-active {
-    transition: all 0.3s ease-out;
-}
-
-.slide-fade-leave-active {
-    transition: all 0.3s ease-out;
-}
-
-.slide-fade-enter-from,
-.slide-fade-leave-to {
-    transform: translateY(20px);
-    opacity: 0;
+/* Full screen toggle height transition */
+:global(.jn-tools-drawer) {
+    transition:
+        transform 0.5s cubic-bezier(0.32, 0.72, 0, 1),
+        height 0.3s cubic-bezier(0.32, 0.72, 0, 1) !important;
 }
 </style>

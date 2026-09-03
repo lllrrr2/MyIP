@@ -1,20 +1,13 @@
-# Pull Request Template
+> ⚠️ **Open this PR against the `dev` branch, not `main`.** `main` only receives release merges from `dev`.
 
-## Description
-Please include a summary of the change and which issue is fixed. 
+## What & why
 
-## Type of change
-- [ ] Bug fix
-- [ ] New feature
-- [ ] Breaking change
-- [ ] Documentation update
+Summary of the change, and the issue it fixes if any (e.g. `Closes #123`).
 
-## Checklist:
-- [ ] I have followed the contribution guidelines.
-- [ ] My code follows the style guidelines of this project.
-- [ ] I have performed a self-review of my own code.
-- [ ] I have commented my code, particularly in hard-to-understand areas.
-- [ ] I have made corresponding changes to the documentation.
-- [ ] My changes generate no new warnings.
-- [ ] I have added tests that prove my fix is effective or that my feature works.
-- [ ] New and existing unit tests pass locally with my changes.
+## Checklist
+
+- [ ] Targets `dev`; one concern per PR
+- [ ] `pnpm check` is green locally (tests + build)
+- [ ] Logic changes ship with a spec in `tests/`
+- [ ] User-visible copy lands in all five `full` locales (`en` / `zh` / `zh-TW` / `fr` / `ru`)
+- [ ] I've read [CONTRIBUTING.md](../CONTRIBUTING.md) and the relevant `AGENTS.md`

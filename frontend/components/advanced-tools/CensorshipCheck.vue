@@ -1,155 +1,180 @@
 <template>
-    <!-- Censorship Check -->
-    <div class="mtr-test-section my-4">
-        <div class="text-secondary">
-            <p>{{ t('censorshipcheck.Note') }}</p>
-        </div>
-        <div class="row">
-            <div class="col-12 mb-3">
-                <div class="card jn-card" :class="{ 'dark-mode dark-mode-border': isDarkMode }">
-                    <div class="card-body">
-                        <div class="col-12 col-md-auto">
-                            <label for="queryURL" class="col-form-label">{{ t('censorshipcheck.Note2') }}</label>
-                        </div>
+    <div class="censorship-check-section my-4 space-y-4">
+        <!-- Top note -->
+        <p class="text-sm text-muted-foreground leading-relaxed">{{ t('censorshipcheck.Note') }}</p>
 
-                        <div class="input-group mb-2 mt-2 ">
-                            <input type="text" class="form-control" :class="{ 'dark-mode': isDarkMode }"
-                                :disabled="censorshipCheckStatus === 'running'"
-                                :placeholder="t('censorshipcheck.Placeholder')" v-model="queryURL"
-                                @keyup.enter="onSubmit" name="queryURL" id="queryURL" data-1p-ignore>
-
-                            <button class="btn btn-primary" @click="onSubmit"
-                                :disabled="censorshipCheckStatus === 'running' || !queryURL">
-                                <span v-if="censorshipCheckStatus !== 'running'">{{
-                                    t('censorshipcheck.Run') }}</span>
-                                <span v-else class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
-                            </button>
-
-                        </div>
-                        <div class="jn-placeholder">
-                            <p v-if="errorMsg" class="text-danger">{{ errorMsg }}</p>
-                        </div>
-
-                        <!-- Result Display -->
-
-                        <div id="censorshipresult" class="row" v-if="censorshipResults.length > 0">
-                            <div class="col-md-6 col-12">
-                                <h3 class="fs-4 alert alert-info ">{{ t('censorshipcheck.TestGroup') }}</h3>
-                                <div class="table-responsive text-nowrap">
-
-                                    <table class="table table-hover" :class="{ 'table-dark': isDarkMode }">
-                                        <thead>
-                                            <tr>
-                                                <template v-for="header in ['Country', 'Status', 'City', 'Network']"
-                                                    :key="header">
-                                                    <th scope="col">{{ t('censorshipcheck.' + header) }}</th>
-                                                </template>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr v-for="(result, index) in censorshipResults
-                                                .filter(result => highRiskCountries.includes(result.country))"
-                                                :key="result.country + '-' + result.city + '-' + index">
-                                                <td>
-                                                    <span :class="'jn-fl fi fi-' + result.country.toLowerCase()"></span>
-                                                    {{ result.country_name }}
-                                                </td>
-                                                <td>
-                                                    <i class="bi" :class="{
-                                                        'bi-x-circle-fill text-danger': result.status === 'failed',
-                                                        'bi-check-circle-fill text-success': result.status === 'finished',
-                                                    }"></i>
-                                                    <span v-if="result.status === 'in-progress'"
-                                                        class="spinner-border spinner-border-sm"
-                                                        aria-hidden="true"></span>
-                                                </td>
-                                                <td>{{ result.city }}</td>
-                                                <td>{{ result.network }}</td>
-                                            </tr>
-
-                                        </tbody>
-
-                                    </table>
-                                </div>
-                            </div>
-
-                            <div class="col-md-6 col-12">
-                                <h3 class="fs-4 alert alert-success">{{ t('censorshipcheck.ControlGroup') }}</h3>
-                                <div class="table-responsive text-nowrap">
-
-                                    <table class="table table-hover" :class="{ 'table-dark': isDarkMode }">
-                                        <thead>
-                                            <tr>
-                                                <template v-for="header in ['Country', 'Status', 'City', 'Network']"
-                                                    :key="header">
-                                                    <th scope="col">{{ t('censorshipcheck.' + header) }}</th>
-                                                </template>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr v-for="(result, index) in censorshipResults
-                                                .filter(result => !highRiskCountries.includes(result.country))"
-                                                :key="result.country + '-' + result.city + '-' + index">
-                                                <td>
-                                                    <span :class="'jn-fl fi fi-' + result.country.toLowerCase()"></span>
-                                                    {{ result.country_name }}
-                                                </td>
-                                                <td>
-                                                    <i class="bi" :class="{
-                                                        'bi-x-circle-fill text-danger': result.status === 'failed',
-                                                        'bi-check-circle-fill text-success': result.status === 'finished',
-                                                    }"></i>
-                                                    <span v-if="result.status === 'in-progress'"
-                                                        class="spinner-border spinner-border-sm"
-                                                        aria-hidden="true"></span>
-                                                </td>
-                                                <td>{{ result.city }}</td>
-                                                <td>{{ result.network }}</td>
-                                            </tr>
-
-                                        </tbody>
-
-                                    </table>
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                        <transition @before-enter="beforeEnter" @enter="enter" @leave="leave">
-                            <div v-if="censorshipCheckStatus === 'finished'">
-                                <div class="alert" :class="{
-                                    'alert-info': isDown,
-                                    'alert-danger': isBlocked,
-                                    'alert-success': !isBlocked && !isDown
-                                }" :data-bs-theme="isDarkMode ? 'dark' : ''">
-
-                                    <span v-if="isBlocked">
-                                        <i class="bi bi-emoji-frown"></i>
-                                        {{ t('censorshipcheck.isBlocked') }}
-                                    </span>
-
-                                    <span v-else>
-                                        <span v-if="!isDown">
-                                            <i class="bi bi-emoji-smile"></i>
-                                            {{ t('censorshipcheck.notBlocked') }}
-                                        </span>
-
-                                        <span v-else>
-                                            <i class="bi bi-emoji-expressionless"></i>
-                                            {{ t('censorshipcheck.isDown') }}
-                                        </span>
-                                    </span>
-                                    <span class="opacity-75 fst-italic">( {{ t('censorshipcheck.Note3') }} )</span>
-
-                                </div>
-                            </div>
-                        </transition>
-
-                    </div>
-                </div>
+        <!-- Input area -->
+        <div class="space-y-2">
+            <Label for="queryURL">{{ t('censorshipcheck.Note2') }}</Label>
+            <div class="flex items-center gap-2">
+                <Input type="text" id="queryURL" name="queryURL" data-1p-ignore data-lpignore="true" class="font-mono"
+                    autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" :disabled="isBusy"
+                    :placeholder="t('censorshipcheck.Placeholder')" v-model="queryURL" @keyup.enter="onSubmit"
+                    :aria-invalid="errorMsg !== ''" />
+                <Button variant="action" class="cursor-pointer" :disabled="isBusy || !queryURL" @click="onSubmit">
+                    <Spinner v-if="ooniStatus === 'running'" />
+                    <template v-else>
+                        <Play class="size-4 shrink-0" />
+                    </template>
+                </Button>
             </div>
+            <p v-if="errorMsg" class="text-sm text-destructive">{{ errorMsg }}</p>
         </div>
+
+        <!-- Module 1: OONI history -->
+        <template v-if="ooniStatus === 'finished' && ooniData">
+            <div v-if="hasData" class="space-y-3">
+                <!-- Summary banner -->
+                <div class="flex items-start gap-2 p-3 rounded-md border text-sm" :class="historyBannerClass">
+                    <ShieldAlert v-if="flagged.length > 0" class="size-4 mt-0.5 shrink-0" />
+                    <Meh v-else-if="isSparse" class="size-4 mt-0.5 shrink-0" />
+                    <ShieldCheck v-else class="size-4 mt-0.5 shrink-0" />
+                    <span class="leading-relaxed">{{ summaryText }}</span>
+                </div>
+
+                <!-- Flagged countries: fixed two-line rows so mobile stays tidy -->
+                <Card v-if="flagged.length > 0">
+                    <CardContent class="p-0">
+                        <header class="flex items-center justify-between gap-2 px-4 py-3 border-b">
+                            <h3 class="text-sm font-semibold m-0">{{ t('censorshipcheck.HistoryTitle') }}</h3>
+                            <span class="text-xs text-muted-foreground">{{ formatIsoDate(ooniData.since, locale) }} → {{
+                                formatIsoDate(ooniData.until, locale) }}</span>
+                        </header>
+                        <ul class="divide-y">
+                            <li v-for="c in flagged" :key="c.country" class="px-4 py-2.5 space-y-1.5">
+                                <!-- Line 1: country + tier, share/sample pinned right -->
+                                <div class="flex items-center gap-2 text-sm">
+                                    <Icon :icon="'circle-flags:' + c.country.toLowerCase()" class="shrink-0 size-4" />
+                                    <span class="font-medium truncate">{{ countryName(c.country) }}</span>
+                                    <Badge variant="outline" :class="'shrink-0 ' + TIER_META[c.tier].badgeClass">
+                                        {{ t('censorshipcheck.' + TIER_META[c.tier].labelKey) }}
+                                    </Badge>
+                                    <span class="ml-auto text-xs text-muted-foreground whitespace-nowrap">
+                                        {{ t('censorshipcheck.AnomalyShare', { pct: blockedPct(c) }) }}
+                                        · {{ t('censorshipcheck.Measurements', { n: c.measurements }) }}
+                                    </span>
+                                </div>
+                                <!-- Line 2: blocking methods -->
+                                <div class="flex items-center gap-1.5 flex-wrap">
+                                    <Badge v-for="m in methodList(c)" :key="m" variant="secondary" class="font-normal">
+                                        {{ t('censorshipcheck.' + METHOD_KEYS[m]) }}
+                                    </Badge>
+                                </div>
+                            </li>
+                        </ul>
+                    </CardContent>
+                </Card>
+            </div>
+
+            <!-- No OONI data: presets below take over -->
+            <div v-else
+                class="flex items-start gap-2 p-3 rounded-md border border-info/30 bg-info/10 text-info text-sm">
+                <Meh class="size-4 mt-0.5 shrink-0" />
+                <span class="leading-relaxed">{{ t('censorshipcheck.NoData') }}</span>
+            </div>
+        </template>
+
+        <!-- OONI upstream failure: degrade gracefully — say so, keep the
+             realtime module below fully usable -->
+        <div v-if="ooniStatus === 'error'"
+            class="flex items-start gap-2 p-3 rounded-md border border-warning/30 bg-warning/10 text-warning text-sm">
+            <TriangleAlert class="size-4 mt-0.5 shrink-0" />
+            <span class="leading-relaxed">{{ t('censorshipcheck.OoniError') }}</span>
+        </div>
+
+        <!-- Module 2: Globalping realtime test — pick freely from three
+             sections; the cap only gates the run button, not the checkboxes.
+             Stays available when OONI itself is down. -->
+        <template v-if="ooniStatus === 'finished' || ooniStatus === 'error'">
+            <p class="text-sm text-muted-foreground leading-relaxed">{{ t('censorshipcheck.RealtimeNote') }}</p>
+            <Card>
+                <CardContent class="p-0">
+                    <header class="flex items-center gap-2 px-4 py-3 border-b">
+                        <Activity class="size-4 text-action shrink-0" />
+                        <h3 class="text-sm font-semibold m-0">{{ t('censorshipcheck.RealtimeTitle') }}</h3>
+                        <Button variant="action" size="sm" class="ml-auto cursor-pointer"
+                            :disabled="selectedCountries.length === 0 || overLimit || running"
+                            :title="overLimit ? t('globalping.GroupFull', { max: MAX_TEST_COUNTRIES }) : ''"
+                            @click="runTest">
+                            <Spinner v-if="censorshipCheckStatus === 'running'" />
+                            <Play v-else class="size-4 shrink-0" />
+                            {{ t('censorshipcheck.RunVerify') }}
+                        </Button>
+                    </header>
+
+                    <div class="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x">
+                        <!-- Left: suggestion sections (flagged / high-risk / open) +
+                             the picker's own continent catalog. Scroll container
+                             stays padding-free (sticky top-0 can't cover a
+                             scroll container's own padding) -->
+                        <div class="col-span-1" :class="runStarted ? 'md:relative md:min-h-96' : ''">
+                            <div class="max-h-72 overflow-y-auto"
+                                :class="runStarted ? 'md:max-h-none md:absolute md:inset-0' : 'md:max-h-128'">
+                                <div class="px-4 py-3">
+                                    <GlobalpingCountryPicker v-model="selectedCountries" :sections="pickerSections"
+                                        :max="MAX_TEST_COUNTRIES" :disabled="running" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: raw results only, no verdict. The pre-run hint
+                             centers on both axes of the column -->
+                        <div class="col-span-3 shadow-inner md:shadow-none"
+                            :class="runStarted ? '' : 'flex items-center justify-center'">
+                            <div v-if="runStarted" class="overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <thead>
+                                        <tr class="border-b">
+                                            <th v-for="key in ['Country', 'Status', 'City', 'Network']" :key="key"
+                                                scope="col"
+                                                class="text-left px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide text-nowrap">
+                                                {{ t('censorshipcheck.' + key) }}
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y">
+                                        <tr v-for="(result, idx) in testRows"
+                                            :key="result.country + '-' + result.city + '-' + idx"
+                                            class="hover:bg-muted/50 transition-colors">
+                                            <td class="px-3 py-2 whitespace-nowrap">
+                                                <div class="flex items-center gap-1.5">
+                                                    <Icon :icon="'circle-flags:' + result.country.toLowerCase()"
+                                                        class="shrink-0 size-4" />
+                                                    <span>{{ result.country_name }}</span>
+                                                </div>
+                                            </td>
+                                            <!-- finished → check; failed → cross; in-progress →
+                                                 spinner; pre-run placeholder → muted dash -->
+                                            <td class="px-3 py-2">
+                                                <CircleCheck v-if="result.status === 'finished'"
+                                                    class="size-4 text-success" />
+                                                <CircleX v-else-if="result.status === 'failed'"
+                                                    class="size-4 text-destructive" />
+                                                <Spinner v-else-if="result.status === 'in-progress'"
+                                                    class="size-4 text-info" />
+                                                <span v-else class="text-muted-foreground">—</span>
+                                            </td>
+                                            <td class="px-3 py-2 text-muted-foreground">{{ result.city }}</td>
+                                            <td class="px-3 py-2 text-muted-foreground truncate max-w-100"
+                                                :title="result.network">{{ result.network }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <p v-else class="px-4 py-6 text-sm text-muted-foreground text-center">
+                                {{ t('censorshipcheck.ResultsHint') }}
+                            </p>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <!-- Datacenter caveat — context, not a verdict -->
+            <p v-if="censorshipCheckStatus === 'finished' && hasData"
+                class="text-xs text-muted-foreground leading-relaxed">
+                {{ t('censorshipcheck.RealtimeFooterNote') }}
+            </p>
+        </template>
     </div>
 </template>
 
@@ -157,160 +182,237 @@
 import { ref, computed } from 'vue';
 import { useMainStore } from '@/store';
 import { useI18n } from 'vue-i18n';
-import { trackEvent } from '@/utils/use-analytics';
-import getCountryName from '@/utils/country-name.js';
+import { trackEvent } from '@/utils/analytics';
+import { emitAppEvent } from '@/utils/app-events.js';
+import { useGlobalpingMeasurement } from '@/composables/use-globalping-measurement';
+import GlobalpingCountryPicker from './GlobalpingCountryPicker.vue';
+import { isValidDomain } from '@/utils/valid-ip.js';
+import getCountryName from '@/data/country-name.js';
+import { formatIsoDate } from '@/utils/time-utils.js';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { Spinner } from '@/components/ui/spinner';
+import { Icon } from '@iconify/vue';
+import {
+    Activity, CircleCheck, CircleX, Meh, ShieldAlert, ShieldCheck, Play, TriangleAlert,
+} from '@lucide/vue';
+import { Label } from '@/components/ui/label';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 const store = useMainStore();
-const isDarkMode = computed(() => store.isDarkMode);
-const isMobile = computed(() => store.isMobile);
 const lang = computed(() => store.lang);
-const isSignedIn = computed(() => store.isSignedIn);
-const highRiskCountries = ['CN', 'RU', 'TR', 'SA'];
-const censorshipResults = ref([]);
-const censorshipCheckStatus = ref("idle");
-const isBlocked = ref(false);
-const isDown = ref(false);
-const blockedCountries = ref([]);
+
+// The two fixed picker sections next to the OONI-flagged one. All three
+// share one selection and one cap: MAX_TEST_COUNTRIES.
+const HIGH_RISK_COUNTRIES = ['CN', 'RU', 'TR', 'SA', 'IR'];
+const OPEN_COUNTRIES = ['US', 'DE', 'JP', 'SG'];
+const MAX_TEST_COUNTRIES = 15;
+const PROBES_PER_COUNTRY = 2;
+
+// OONI tier / blocking-method display maps (tiers computed by the backend,
+// see common/ooni-blocking.js).
+const TIER_META = {
+    confirmed: { labelKey: 'TierConfirmed', badgeClass: 'bg-destructive/15 text-destructive border-transparent' },
+    likely: { labelKey: 'TierLikely', badgeClass: 'bg-warning/15 text-warning border-transparent' },
+    signs: { labelKey: 'TierSigns', badgeClass: 'bg-info/15 text-info border-transparent' },
+};
+const METHOD_KEYS = {
+    dns: 'MethodDns',
+    tcp_ip: 'MethodTcpIp',
+    'http-failure': 'MethodHttpFailure',
+    'http-diff': 'MethodHttpDiff',
+};
+
 const queryURL = ref('');
 const errorMsg = ref('');
+const currentHostname = ref('');
 
-// 检查 URL 输入是否有效
-const validateInput = (input) => {
-    if (!input.match(/^https?:\/\//)) {
-        input = 'http://' + input;
+// —— OONI history state ——
+const ooniStatus = ref('idle');  // 'idle' | 'running' | 'finished' | 'error'
+const ooniData = ref(null);
+
+// —— realtime test state ——
+const selectedCountries = ref([]);   // checked countries across all sections
+// Country order of the active/last run, frozen at run start for sorting.
+const activeTestCountries = ref([]);
+const censorshipResults = ref([]);
+const { status: censorshipCheckStatus, start: runMeasurement } = useGlobalpingMeasurement({
+    pollInterval: 3000,
+    maxRetries: 5,
+});
+
+const isBusy = computed(() => ooniStatus.value === 'running' || censorshipCheckStatus.value === 'running');
+
+const hasData = computed(() => (ooniData.value?.countries?.length || 0) > 0);
+const flagged = computed(() => (ooniData.value?.countries || []).filter((c) => c.tier !== 'ok'));
+
+// "Sparse" = OONI observed the domain in only a handful of countries. A clean
+// result over sparse data proves nothing, so the summary must not read (or
+// color) like an all-clear.
+const SPARSE_COUNTRY_THRESHOLD = 5;
+const isSparse = computed(() => hasData.value && ooniData.value.countries.length < SPARSE_COUNTRY_THRESHOLD);
+const totalMeasurements = computed(() =>
+    (ooniData.value?.countries || []).reduce((sum, c) => sum + c.measurements, 0)
+);
+const summaryText = computed(() => {
+    const total = ooniData.value?.countries?.length || 0;
+    if (isSparse.value) {
+        return flagged.value.length > 0
+            ? t('censorshipcheck.SummarySparseFlagged', { total, n: flagged.value.length })
+            : t('censorshipcheck.SummarySparseClean', { total, m: totalMeasurements.value });
     }
+    return flagged.value.length > 0
+        ? t('censorshipcheck.SummaryFlagged', { n: flagged.value.length })
+        : t('censorshipcheck.SummaryClean', { n: total });
+});
+
+const countryName = (cc) => getCountryName(cc, lang.value);
+const blockedPct = (c) => Math.round(((c.anomaly + c.confirmed) / c.measurements) * 100);
+const methodList = (c) => Object.entries(c.methods || {})
+    .sort((a, b) => b[1] - a[1])
+    .map(([type]) => type);
+
+// History banner: worst flagged tier decides the tone; a clean-but-sparse
+// result stays neutral instead of green. (The matching icon branches live
+// in the template.)
+const historyBannerClass = computed(() => {
+    if (flagged.value.some((c) => c.tier === 'confirmed' || c.tier === 'likely')) {
+        return 'border-destructive/30 bg-destructive/10 text-destructive';
+    }
+    if (flagged.value.length > 0) return 'border-warning/30 bg-warning/10 text-warning';
+    if (isSparse.value) return 'border-info/30 bg-info/10 text-info';
+    return 'border-success/30 bg-success/10 text-success';
+});
+
+// —— country picker: suggestion sections for the shared picker component ——
+// (which appends the full continent catalog itself). Selection is never
+// hard-capped; past MAX_TEST_COUNTRIES the picker's tally turns red and the
+// run button locks until the user deselects.
+const overLimit = computed(() => selectedCountries.value.length > MAX_TEST_COUNTRIES);
+const running = computed(() => censorshipCheckStatus.value === 'running');
+const runStarted = computed(() => running.value || censorshipCheckStatus.value === 'finished');
+
+const pickerSections = computed(() => {
+    const list = [];
+    const flaggedCcs = flagged.value.map((c) => c.country);
+    if (flaggedCcs.length > 0) {
+        list.push({ key: 'flagged', label: t('censorshipcheck.SectionFlagged'), countries: flaggedCcs });
+    }
+    list.push({ key: 'highrisk', label: t('censorshipcheck.PresetHighRisk'), countries: HIGH_RISK_COUNTRIES });
+    list.push({ key: 'open', label: t('censorshipcheck.PresetOpen'), countries: OPEN_COUNTRIES });
+    return list;
+});
+
+// Result rows for the right column. While running, every country is padded
+// to PROBES_PER_COUNTRY spinner rows up front so arriving results replace
+// placeholders in place instead of reflowing the table; after the run,
+// countries that never got a probe collapse to a single dash row.
+const placeholderRow = (cc, status) => ({
+    country: cc,
+    country_name: countryName(cc),
+    city: '',
+    network: '',
+    status,
+});
+const testRows = computed(() => activeTestCountries.value.flatMap((cc) => {
+    const rows = censorshipResults.value.filter((r) => r.country === cc);
+    if (running.value) {
+        const missing = PROBES_PER_COUNTRY - rows.length;
+        if (missing <= 0) return rows;
+        return [...rows, ...Array.from({ length: missing }, () => placeholderRow(cc, 'in-progress'))];
+    }
+    if (rows.length > 0) return rows;
+    return [placeholderRow(cc, 'waiting')];
+}));
+
+const validateInput = (input) => {
+    if (!input.match(/^https?:\/\//)) input = 'http://' + input;
     try {
         const url = new URL(input);
-        const hostname = url.hostname;
-
-        if (hostname.match(/^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/i)) {
-            return hostname;
-        }
-    } catch {
-    }
+        if (isValidDomain(url.hostname)) return url.hostname;
+    } catch { /* noop */ }
     errorMsg.value = t('censorshipcheck.invalidURL');
     return null;
 };
 
+const resetAll = () => {
+    errorMsg.value = '';
+    ooniData.value = null;
+    ooniStatus.value = 'idle';
+    selectedCountries.value = [];
+    activeTestCountries.value = [];
+    censorshipResults.value = [];
+    censorshipCheckStatus.value = 'idle';
+};
+
 const onSubmit = () => {
     trackEvent('Section', 'StartClick', 'CensorshipCheck');
-    errorMsg.value = '';
-    censorshipResults.value = [];
-    censorshipCheckStatus.value = "idle";
-    isBlocked.value = false;
-    isDown.value = false;
-    blockedCountries.value = [];
+    resetAll();
     const hostname = validateInput(queryURL.value);
-    if (hostname) {
-        startHttpCheck(hostname);
+    if (!hostname) return;
+    currentHostname.value = hostname;
+    queryOoni(hostname);
+};
+
+// —— OONI history query (default view) ——
+const queryOoni = async (hostname) => {
+    ooniStatus.value = 'running';
+    try {
+        const response = await fetch(`/api/ooni-blocking?domain=${encodeURIComponent(hostname)}`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        ooniData.value = await response.json();
+        ooniStatus.value = 'finished';
+        // Achievement rule (ItIsOpen) lives in data/achievement-rules.js —
+        // payload { blocked }. The realtime module draws no verdict, so this
+        // is the only emitter now.
+        emitAppEvent('censorship:tested', {
+            blocked: flagged.value.some((c) => c.tier === 'confirmed' || c.tier === 'likely'),
+        });
+    } catch (error) {
+        // Degrade, don't dead-end: the warning banner explains, and the
+        // realtime module below stays fully usable via the preset sections.
+        console.error('Error fetching OONI blocking data:', error);
+        ooniStatus.value = 'error';
     }
 };
 
-// 发起 http 测试
-const startHttpCheck = () => {
-    trackEvent('Section', 'StartClick', 'CensorshipCheck');
-    const hostname = validateInput(queryURL.value);
-    if (!hostname) {
-        return;
-    }
-    let tryCount = 0;
-    // 子函数：发起 http 请求
-    const sendHttpRequest = async () => {
-        censorshipCheckStatus.value = "running";
-        try {
-            const response = await fetch("https://api.globalping.io/v1/measurements", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    locations: [
-                        { country: "CN", limit: 2 },
-                        { country: "RU", limit: 2 },
-                        { country: "TR", limit: 2 },
-                        { country: "SA", limit: 2 },
-                        { country: "JP" },
-                        { country: "US" },
-                        { country: "CA" },
-                        { country: "IT" },
-                        { country: "FI" },
-                        { country: "AU" },
-                        { country: "FR" },
-                        { country: "DE" },
-                    ],
-                    target: hostname,
-                    type: "http",
-                    measurementOptions: {
-                        "request": {
-                            "host": hostname,
-                            "path": "/",
-                            "method": "HEAD"
-                        },
-                        "port": 443,
-                        "protocol": "HTTPS"
-                    }
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error("Error sending HTTP request:", error);
-            censorshipCheckStatus.value = "error";
-            errorMsg.value = t('censorshipcheck.invalidURL');
-        }
-    };
-
-    // 子函数：获取 http 结果
-    const fetchHttpResults = async (id) => {
-        try {
-            const response = await fetch(`https://api.globalping.io/v1/measurements/${id}`);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
+// —— realtime run over the composed list — raw results, no verdict ——
+const runTest = () => {
+    trackEvent('Section', 'StartClick', 'CensorshipVerify');
+    const group = [...selectedCountries.value];
+    activeTestCountries.value = group;
+    censorshipResults.value = [];
+    runMeasurement({
+        locations: group.map((cc) => ({ country: cc, limit: PROBES_PER_COUNTRY })),
+        target: currentHostname.value,
+        type: 'http',
+        measurementOptions: {
+            request: { host: currentHostname.value, path: '/', method: 'HEAD' },
+            port: 443,
+            protocol: 'HTTPS',
+        },
+    }, {
+        onResults: (data) => {
             processHttpResults(data);
-
-            if (data.status === "in-progress" && tryCount < 5) {
-                setTimeout(() => fetchHttpResults(id), 3000);
-                tryCount++;
-            } else {
-                if (censorshipResults.value.length === 0) {
-                    censorshipCheckStatus.value = "error";
-                    errorMsg.value = t('censorshipcheck.fetchError');
-                } else {
-                    correctResult();
-                    calResult(censorshipResults.value);
-                    censorshipCheckStatus.value = "finished";
-                }
-            }
-        } catch (error) {
-            console.error("Error fetching HTTP results:", error);
-            censorshipCheckStatus.value = "error";
-            errorMsg.value = t('censorshipcheck.fetchError');
-        }
-    };
-
-    // 执行流程
-    sendHttpRequest().then(data => {
-        if (data && data.id) {
-            setTimeout(() => {
-                fetchHttpResults(data.id);
-            }, 3000);
-        }
+            return censorshipResults.value.length > 0;
+        },
+        onFinish: correctResult,
+        // POST error surfaces as 'invalidURL' (preserves pre-refactor copy);
+        // poll failure / empty result surface as 'fetchError'.
+        onError: (reason) => {
+            errorMsg.value = reason === 'create'
+                ? t('censorshipcheck.invalidURL')
+                : t('censorshipcheck.fetchError');
+        },
     });
 };
 
-// 过滤数据
 const processHttpResults = (data) => {
-    const cleanedData = data.results
-        .filter(item => item.result.status === "finished" || item.result.status === "failed" || item.result.status === "in-progress")
+    censorshipResults.value = data.results
+        .filter(item => ['finished', 'failed', 'in-progress'].includes(item.result.status))
         .filter(item => item.result.rawOutput !== null)
         .map(item => ({
             country: item.probe.country,
@@ -318,110 +420,22 @@ const processHttpResults = (data) => {
             city: item.probe.city,
             network: item.probe.network,
             status: item.result.status,
-            headers: item.result.rawHeaders ? 'OK' : '',
         }));
-
-    censorshipResults.value = cleanedData;
 };
 
-// 结果修正
 const correctResult = () => {
-    // 超时的结果判断为连接失败
     censorshipResults.value.forEach(result => {
-        if (result.status === 'in-progress') {
-            result.status = 'failed';
-        }
+        if (result.status === 'in-progress') result.status = 'failed';
     });
 
-    // 重新排序
+    const priority = activeTestCountries.value;
     censorshipResults.value = [...censorshipResults.value.sort((a, b) => {
-        // 高危国家排序
-        const priorityIndexA = highRiskCountries.indexOf(a.country);
-        const priorityIndexB = highRiskCountries.indexOf(b.country);
-
-        if (priorityIndexA !== -1 && priorityIndexB !== -1) {
-            return priorityIndexA - priorityIndexB;
-        }
-
-        // 如果只有一个是优先国家，那么这个国家排在前面
-        if (priorityIndexA !== -1) {
-            return -1;
-        }
-        if (priorityIndexB !== -1) {
-            return 1;
-        }
-
-        // 如果都不是优先国家，按国家代码的字母顺序排序
+        const priorityIndexA = priority.indexOf(a.country);
+        const priorityIndexB = priority.indexOf(b.country);
+        if (priorityIndexA !== -1 && priorityIndexB !== -1) return priorityIndexA - priorityIndexB;
+        if (priorityIndexA !== -1) return -1;
+        if (priorityIndexB !== -1) return 1;
         return a.country.localeCompare(b.country);
     })];
 };
-
-// 计算结果
-const calResult = (testResults) => {
-    // 重置状态
-    blockedCountries.value = [];
-    isBlocked.value = false;
-    isDown.value = false;
-
-    // 判断测试结果是否失败的函数
-    const isFailedResult = result => result.status === 'failed' && result.headers === '';
-
-    // 检查高风险国家
-    const blockedHighRiskCountries = highRiskCountries.filter(country => {
-        const countryResults = testResults.filter(result => result.country === country);
-        return countryResults.length > 0 && countryResults.every(isFailedResult);
-    });
-
-    // 检查非高风险国家状态
-    const otherResults = testResults.filter(result => !highRiskCountries.includes(result.country));
-    const failedOtherResultsCount = otherResults.filter(isFailedResult).length;
-    const failureRate = otherResults.length ? failedOtherResultsCount / otherResults.length : 0;
-
-    // 判断网站状态
-    if (failureRate > 0.5) {
-        // 超过一半非高风险国家失败，可能是网站问题
-        isDown.value = true;
-    } else {
-        // 否则更新被封锁国家列表
-        blockedCountries.value = blockedHighRiskCountries;
-        isBlocked.value = blockedHighRiskCountries.length > 0;
-    }
-    if (isSignedIn.value) {
-        checkAchievements();
-    }
-};
-
-// 检查是否达成成就
-const checkAchievements = () => {
-    if (isBlocked.value) {
-        if (!store.userAchievements.ItIsOpen.achieved) {
-            store.setTriggerUpdateAchievements('ItIsOpen');
-        }
-    }
-}
-
-// 一些动画效果
-const beforeEnter = (el) => {
-    el.style.height = '0';
-};
-const enter = (el, done) => {
-    el.classList.add('collapsing');
-    el.style.height = 'fit-content';
-    el.addEventListener('transitionend', done);
-};
-const leave = (el, done) => {
-    el.style.height = '0';
-    el.addEventListener('transitionend', done);
-}
-
 </script>
-
-<style scoped>
-.jn-focus-remove {
-    outline: none;
-}
-
-.jn-placeholder {
-    height: 16pt;
-}
-</style>

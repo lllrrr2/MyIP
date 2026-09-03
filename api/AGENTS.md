@@ -1,0 +1,166 @@
+# api/AGENTS.md
+
+Conventions for Express 5 handlers under `api/` and shared back-end code
+under `common/`. Universal rules live in ../AGENTS.md.
+
+## Overview
+
+The Express app lives in `backend-server.js` at the repo root — every route
+is wired there and delegated to one handler module under `api/`. `common/`
+holds shared back-end code (guards, logger, fetch helper, MaxMind / CAIDA
+services, service-status poller), parts of which the frontend also imports
+(`valid-ip.js`, `fetch-with-timeout.js`).
+
+Roughly one handler file per route: IP-geolocation sources (`ipinfo-io` /
+`ipapi-com` / `ipapi-is` / `ip2location-io` / `ip-sb` / `ipcheck-ing` /
+`maxmind`), tool backends (`get-whois` / `dns-resolver` / `mac-checker` /
+`cf-radar` / `asn-history` / `asn-connectivity` /
+`ooni-blocking` / `globalping-probes` / `service-status` / `google-map` /
+`github-stars` / `invisibility-test` / `dns-leak-test` / `persona`), user
+proxies (`get-user-info` / `update-user-achievement`), platform
+(`configs` / `sentry-tunnel` / `share-report`). Each file's header comment
+states its route and purpose — read those for specifics.
+
+The exception to one-file-per-route is Cloudflare Radar: all Radar data
+rides the single `/api/cfradar` route, dispatched by `?view=` over the
+`RADAR_VIEWS` registry in `common/cf-radar.js`. Each view declares its
+guards, edge-cache TTL, and fetch function there — new Radar data means a
+view function plus a registry row, never a new route.
+
+`api/data/` holds contributor-editable static config consumed by handlers —
+currently `dns-resolvers.js`, the country-annotated resolver list behind
+`dns-resolver` (gated by `tests/dns-resolvers-data.test.js`).
+
+## Conventions
+
+- **Handler shape.** Single default export `async (req, res) => …`: read
+  `req.query` / `req.body`, call upstream, write one response.
+- **Every upstream call uses `fetchUpstream`** from
+  `common/fetch-with-timeout.js` (8s timeout). Never a bare `fetch()` /
+  `https.get()` — a hanging provider must time out, not pin the connection.
+  It also injects a default `User-Agent` of `MyIP/v<version>/<VITE_SITE_URL>`
+  (registered at boot by `common/upstream-ua.js` — some upstream WAFs block
+  undici's default `node` UA); caller-supplied `User-Agent` headers, including
+  the private-API `{ ...req.headers }` pass-through, always win.
+- **Error shape.** `res.status(500).json({ error: error.message })` on
+  upstream failure, `400` on bad input. Terse — the frontend doesn't display
+  these verbatim.
+- **Response shape.** IP-geolocation handlers normalize to the canonical
+  frontend shape (`ip` / `country_code` / `latitude` / `asn` / `org` / …);
+  new sources match it. `timezone` is the exception — no handler produces it;
+  see "Response enrichment" below.
+- **`?lang` is never validated in a handler.** Handlers pass the raw tag
+  through: `lookupMaxMind` normalizes it onto the languages its data carries
+  (`SUPPORTED_LANGS` in `common/maxmind-service.js`), and the private-API
+  proxies forward it for the upstream's own resolution. No allow-lists.
+- **Logging.** Shared logger only, `logger.error({ err, ...ctx }, 'msg')`;
+  no `console.*`, no "received request" lines (`pino-http` covers those when
+  enabled).
+- **Error monitoring (Sentry) is env-gated and invisible to handlers.**
+  Root-level `sentry-instrument.js` (loaded via `node --import` *before*
+  express, so ESM loader hooks can auto-instrument route tracing) does the
+  init; `backend-server.js` attaches `setupExpressErrorHandler` after the
+  routes. No `SENTRY_DSN_BACKEND` → `@sentry/node` never loads;
+  `SENTRY_ENVIRONMENT=development` skips the init, so a local run reports
+  nothing (same rule the cron check-ins already follow). Handlers
+  never import Sentry or capture manually: uncaught throws and 5xx traces
+  are automatic; caught failures stay on the logger — a hook in
+  `common/logger.js` mirrors warn+ to Sentry Logs and elevates error+ to
+  grouped, alertable Issues. Periodic jobs wrap their tick in
+  `common/sentry-cron.js` for Crons check-ins. API-key query params
+  (`key` / `token` / …) are redacted from telemetry URLs
+  (`common/sentry-scrub.js`, wired as `beforeBreadcrumb` / `beforeSendSpan`
+  / `beforeSend` hooks).
+
+## Security & Boundaries
+
+### Guards live in middleware, not handlers
+
+`common/guards.js`, attached in `backend-server.js` — handlers never repeat
+these checks:
+
+- `requireReferer` — global on `/api/*` (ALLOWED_DOMAINS + localhost).
+- `requirePublicIP()` — per-route for `?ip=`; handler sees a well-formed,
+  publicly routable IP. Reserved space (RFC 1918, loopback, CGNAT, link-local,
+  documentation, …) is rejected here, so no geo source is ever asked about an
+  address it can't answer for — `isUsablePublicIP` in `common/valid-ip.js` is
+  the single definition, shared with the front-end IP forms.
+- `requireValidDomain()` — `?domain=`, lowercases in place so the edge cache
+  sees one canonical key. `isValidDomain` allows a leading underscore on any
+  label but the TLD, so RFC 8552 service names (`_dmarc.…`, `_domainkey.…`)
+  are reachable — that is what a DMARC or DKIM lookup needs.
+- `requireValidPrefix()` — `?prefix=` (CIDR); lets the frontend quantize to
+  the BGP DFZ floor (/24 v4, /48 v6) for maximal CF edge-cache reuse.
+- `requireValidASN()` — `?asn=`, strips `AS`, rewrites to numeric.
+- `requireValidCountry()` — `?country=` (alpha-2), uppercases in place for one
+  canonical edge-cache key. Syntactic only — an unassigned code just yields an
+  empty upstream series.
+- `requireValidProviderId()` — whitelists `?id=` against service-status slugs.
+- `requireValidRecordType()` — whitelists `?type=` against `DNS_RECORD_TYPES`
+  in `common/dns-record-types.js` and uppercases it. That list is the single
+  source the picker in DnsResolver.vue and the `resolveDns` switch also read;
+  without the guard the DoH branch forwards any string verbatim to four
+  third-party endpoints.
+- `requireValidReportId()` — `/api/report/:id` route param (22-char base64url).
+
+New param shape → new guard in `common/guards.js`, attached in
+`backend-server.js`; never open-coded in the handler.
+
+### Response enrichment lives in middleware too
+
+`withTimeZone()` (`common/ip-timezone.js`), attached to all seven geo routes,
+derives `timezone` (IANA name) from the `latitude` / `longitude` the handler
+just returned and adds it on the way out — 2xx only, same res.json hook and
+same rule as `cacheable`. No handler computes or forwards a timezone, not even
+the private-API pass-throughs.
+
+Deriving it from the response's own coordinates is what keeps the zone from
+contradicting the city beside it; a second database asked about the same IP
+would eventually disagree. Only the zone name ships — the frontend renders the
+UTC offset from it, because these routes sit behind a 24h edge cache and a
+cached offset goes an hour wrong at every DST switch.
+
+A new geo source inherits the field by adding the middleware to its route.
+
+### Private-API header pass-through (intentional exception)
+
+Handlers proxying our private IPCheck.ing API (`ipcheck-ing`,
+`invisibility-test`, `update-user-achievement`, `get-user-info`,
+`dns-leak-test`, `persona`) forward the caller's headers upstream
+(`headers: { ...req.headers }`) — the upstream needs caller context
+(Accept-Language, auth tokens). `persona` is the one that strips the framing
+headers first (`host` / `content-length` / …): it re-serializes the body, so
+the caller's length no longer describes what goes out. Do **not** replicate for third-party
+upstreams; those get only what's explicitly needed.
+
+### Defensive method gates
+
+Some handlers keep a `req.method !== 'GET'` branch although the route
+already gates the method — smoke tests assert on that branch directly.
+Leave the gate in place when a test covers it.
+
+## Edge caching
+
+Every `/api/*` response defaults to `Cache-Control: no-store`; slowly-changing
+public routes opt in via the `cacheable(maxAge)` middleware in
+`backend-server.js` — e.g. `app.get('/api/whois', cacheable(24 * 60 * 60), …)`.
+`maxAge` also accepts a `(req) => seconds` resolver for routes whose TTL
+depends on the request (`/api/cfradar` reads it from the view registry); a
+falsy resolution keeps the no-store default, so unknown views never cache.
+Write TTLs as multiplied expressions (`24 * 60 * 60`), not raw seconds.
+The middleware only sets `public, max-age=N` on status < 400, so CF never
+caches error pages; handlers themselves never touch `Cache-Control`.
+**Auth'd / per-user endpoints must not be wrapped** — their caching belongs
+to the upstream that owns the auth context.
+
+## Testing
+
+- Handlers get smoke tests in `tests/api-handlers.test.js`: method gating,
+  param branches, "API key missing" early returns. Most are covered; a new
+  or touched handler ships its block in the same change.
+- Never hit real upstreams — assert on branches that return before the first
+  `fetchUpstream`, or stub `globalThis.fetch` when the behavior under test
+  lives past it (google-map stream tests; restored in the shared `afterEach`).
+- Middleware is covered by `tests/guards.test.js`; don't duplicate its
+  assertions per-handler. Fetch timeout/abort behavior:
+  `tests/fetch-with-timeout.test.js`.

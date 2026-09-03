@@ -1,39 +1,14 @@
-import { isValidIP } from '@/utils/valid-ip.js';
-import { getIPFromMyExternalIP_V4 } from "./myexternalip-v4";
+// Cloudflare IPv4 — hits 1.0.0.1/cdn-cgi/trace and reads `ip=` from the
+// trace body. Chained ahead of MyExternalIP IPv4 in index.js.
+import { fetchWithTimeout } from '../fetch-with-timeout.js';
+import { parseTrace } from '../parse-trace.js';
 
-// 从 Cloudflare 获取 IPv4 地址
-const getIPFromCloudflare_V4 = async () => {
-    try {
-        const response = await fetch("https://1.0.0.1/cdn-cgi/trace");
+export const cloudflareV4 = {
+    id: 'cloudflare-v4',
+    name: 'Cloudflare IPv4',
+    run: async () => {
+        const response = await fetchWithTimeout('https://1.0.0.1/cdn-cgi/trace');
         const data = await response.text();
-        const lines = data.split("\n");
-        const ipLine = lines.find((line) => line.startsWith("ip="));
-        let ip = "";
-        if (ipLine) {
-            ip = ipLine.split("=")[1];
-        }
-        const source = "Cloudflare IPv4";
-        if (isValidIP(ip)) {
-            return {
-                ip: ip,
-                source: source
-            };
-        } else { 
-            console.error("Invalid IP from Cloudflare:", ip);
-            return {
-                ip: null,
-                source: source
-            };
-        }
-    } catch (error) {
-        console.error("Error fetching IP from Cloudflare:", error);
-    }
-    // 故障转移
-    const { ip, source } = await getIPFromMyExternalIP_V4();
-    return {
-        ip: ip,
-        source: source
-    };
+        return parseTrace(data).ip ?? '';
+    },
 };
-
-export { getIPFromCloudflare_V4 };

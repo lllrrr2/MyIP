@@ -1,60 +1,91 @@
 <template>
-  <!-- DNS Leaks Test -->
-  <div class="dnsleak-test-section mb-4">
-    <div class="jn-title2">
-      <h2 id="DNSLeakTest" :class="{ 'mobile-h2': isMobile }">🛑 {{ t('dnsleaktest.Title') }}</h2>
-      <button @click="checkAllDNSLeakTest(true)"
-        :class="['btn', isDarkMode ? 'btn-dark dark-mode-refresh' : 'btn-light']" aria-label="Refresh DNS Leak Test"
-        v-tooltip="t('Tooltips.RefreshDNSLeakTest')"><i class="bi"
-          :class="[isStarted ? 'bi-arrow-clockwise' : 'bi-caret-right-fill']"></i></button>
-    </div>
-    <div class="text-secondary">
-      <p>{{ t('dnsleaktest.Note') }}</p>
-      <p>{{ t('dnsleaktest.Note2') }}</p>
-    </div>
-    <div class="row">
-      <div v-for="(leak, index) in leakTest" :key="leak.id" class="col-lg-3 col-md-6 col-12 mb-4">
-        <div class="card jn-card keyboard-shortcut-card"
-          :class="{ 'dark-mode dark-mode-border': isDarkMode, 'jn-hover-card': !isMobile }">
-          <div class="card-body">
-            <p class="jn-con-title card-title"><i class="bi bi-heart-pulse-fill"></i> {{ leak.name }}
-              <i class="bi" :class="'bi-' + (index + 1) + '-square'"></i>&nbsp;
-            </p>
-            <p class="card-text" :class="{
-              'text-info': leak.ip === t('dnsleaktest.StatusWait') || leak.ip === t('dnsleaktest.StatusError'),
-              'text-success': leak.ip.includes('.') || leak.ip.includes(':'),
-            }">
-              <i class="bi"
-                :class="[leak.ip === t('dnsleaktest.StatusWait') || leak.ip === t('dnsleaktest.StatusError') ? 'bi-hourglass-split' : 'bi-box-arrow-right']"></i>
-              {{ t('dnsleaktest.Endpoint') }}: {{
-              leak.ip }}
-            </p>
-
-            <div class="alert d-flex flex-column" :class="{
-              'alert-info': leak.country === t('dnsleaktest.StatusWait'),
-              'alert-success': leak.country !== t('dnsleaktest.StatusWait'),
-            }" :data-bs-theme="isDarkMode ? 'dark' : ''">
-
-              <span class="jn-org">
-                <i class="bi"
-                  :class="[leak.org === t('dnsleaktest.StatusWait') || leak.org === t('dnsleaktest.StatusError') ? 'bi-hourglass-split' : 'bi-geo-alt-fill']"></i>
-                {{ t('ipInfos.ISP') }}: <span :title="leak.org">{{ leak.org }}</span>
-              </span>
-
-              <span class="mt-2">
-                <i class="bi"
-                  :class="[leak.ip === t('dnsleaktest.StatusWait') || leak.ip === t('dnsleaktest.StatusError') ? 'bi-hourglass-split' : 'bi-geo-alt-fill']"></i>
-                {{ t('ipInfos.Country') }}: <span
-                  :class="[ leak.country !== t('dnsleaktest.StatusWait') ? 'fw-bold':'']">{{ leak.country
-                  }}&nbsp;</span>
-                <span v-show="leak.country_code" :class="'jn-fl fi fi-' + leak.country_code.toLowerCase()"></span>
-              </span>
-            </div>
-          </div>
-        </div>
+  <!-- DNS Leak Test -->
+  <section class="mb-10">
+    <!-- Header -->
+    <header class="mb-2 flex flex-col items-start justify-between gap-4">
+      <div class="flex flex-row items-center justify-between gap-4 w-full">
+        <h2 id="DNSLeakTest"
+          class="m-0 flex min-w-0 flex-1 items-center gap-2 text-xl md:text-3xl font-semibold tracking-tight leading-tight">
+          🛑 {{ t('dnsleaktest.Title') }}
+        </h2>
+        <JnTooltip :text="t('Tooltips.RefreshDNSLeakTest')" side="left">
+          <Button size="icon" variant="outline" class="shrink-0 cursor-pointer" @click="checkAllDNSLeakTest(true)"
+            aria-label="Refresh DNS Leak Test">
+            <component :is="isStarted ? RotateCw : Play" />
+          </Button>
+        </JnTooltip>
       </div>
+      <div class="text-base text-muted-foreground">
+        <p v-if="!isSimpleMode">{{ t('dnsleaktest.Note') }}</p>
+      </div>
+    </header>
+
+    <!-- Card grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+      <Card v-for="(leak, index) in leakTest" :key="leak.id"
+        class="keyboard-shortcut-card jn-card min-w-0 overflow-hidden transition-transform duration-300 ease-out hover:-translate-y-1.5 data-[keyboard-hover=true]:ring-2 data-[keyboard-hover=true]:ring-green-500/50">
+        <CardContent class="p-4 min-w-0">
+          <!-- Top: heartbeat icon + name + index -->
+          <div class="flex flex-col gap-2 mb-3 w-full min-w-0">
+            <div class="flex items-center gap-2 min-w-0 w-full">
+              <DoorOpen class="size-6 text-muted-foreground shrink-0" />
+              <span class="text-base font-medium truncate min-w-0 flex-1">{{ leak.name }}</span>
+
+              <span class="font-mono text-muted-foreground shrink-0">#{{ index + 1 }}</span>
+            </div>
+            <!-- Provider name (secondary information) — fixed per card, sourced
+                 from each provider's `name` export in utils/dnsleaks. -->
+            <p class="w-full min-w-0 mb-1 text-xs font-mono text-muted-foreground truncate" :title="leak.providerName">
+              {{ leak.providerName }}
+            </p>
+          </div>
+
+          <!-- Endpoint status row -->
+          <div class="flex items-center gap-1.5 mb-3 min-w-0 min-h-6">
+            <span class="relative flex shrink-0">
+              <span v-if="toneOf(leak) === 'wait'"
+                class="absolute inline-flex size-2 rounded-full bg-info opacity-75 animate-ping"></span>
+              <span class="relative inline-flex size-2 rounded-full" :class="dotClass(toneOf(leak))"></span>
+            </span>
+            <FitText :text="leak.ip" :tiers="INLINE_TIERS" :title="leak.ip" class="font-mono min-w-0"
+              :class="textClass(toneOf(leak))" :data-mask="maskAttr(leak.ip)" />
+          </div>
+
+          <!-- ISP + Country sub-block -->
+          <dl class="rounded-md bg-muted/50 p-3 space-y-2 text-sm">
+            <div>
+              <dt class="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                <EthernetPort class="size-3.5" />
+                <span>{{ t('ipInfos.ISP') }}</span>
+              </dt>
+              <dd class="font-medium wrap-break-word" :title="leak.org">
+                <span v-if="!isFieldPending(leak.org)">{{ leak.org }}</span>
+                <span v-else class="text-muted-foreground font-normal">—</span>
+              </dd>
+            </div>
+            <div>
+              <dt class="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                <MapPin class="size-3.5" />
+                <span>{{ t('dnsleaktest.EndpointCountry') }}</span>
+              </dt>
+              <dd class="font-medium flex items-center gap-1.5 flex-wrap">
+                <template v-if="!isFieldPending(leak.country)">
+                  <Icon v-if="leak.country_code" :icon="'circle-flags:' + leak.country_code.toLowerCase()"
+                    class="shrink-0 size-4" />
+                  <span class="wrap-break-word">{{ leak.country }}</span>
+                </template>
+                <span v-else class="text-muted-foreground font-normal">—</span>
+              </dd>
+            </div>
+          </dl>
+        </CardContent>
+      </Card>
     </div>
-  </div>
+
+    <!-- Section banner slot (data-driven; see InfoBanner.vue); settled once
+         the homepage test has resolved (success or timeout). -->
+    <InfoBanner section="dnsleak" :settled="hasEverSettled" />
+  </section>
 </template>
 
 
@@ -62,18 +93,55 @@
 import { ref, computed, onMounted, reactive } from 'vue';
 import { useMainStore } from '@/store';
 import { useI18n } from 'vue-i18n';
-import { trackEvent } from '@/utils/use-analytics';
-import countryLookup from 'country-code-lookup';
-import getCountryName from '@/utils/country-name.js';
+import { trackEvent } from '@/utils/analytics';
+import { emitAppEvent, waitForAppEvent } from '@/utils/app-events';
+import { useAppCommand } from '@/composables/use-app-command.js';
+import { JnTooltip } from '@/components/ui/tooltip';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { useStatusTone, ipFieldTone, isFieldPending as isFieldPendingShared } from '@/composables/use-status-tone.js';
+import { createMaskGate } from '@/composables/use-info-mask.js';
+import { useMaxmind } from '@/composables/use-maxmind.js';
+import { EthernetPort, Play, MapPin, RotateCw, DoorOpen } from '@lucide/vue';
+import { Icon } from '@iconify/vue';
+import FitText from '@/components/widgets/FitText.vue';
+import InfoBanner from '@/components/widgets/InfoBanner.vue';
+import { INLINE_TIERS } from '@/composables/use-fit-text.js';
+import {
+  ipApi, surfshark, ipleak, fastly, runWithRetry,
+} from '@/utils/dnsleaks';
+
+// One source of truth for which providers to run and in what order. Adding
+// a new provider = create the file under utils/dnsleaks and append it here.
+// (browserleaks stays available in utils/dnsleaks but is benched for now.)
+const PROVIDERS = [ipApi, surfshark, ipleak, fastly];
 
 
 const { t } = useI18n();
-
 const store = useMainStore();
-const isDarkMode = computed(() => store.isDarkMode);
-const isMobile = computed(() => store.isMobile);
-const lang = computed(() => store.lang);
+const { lookupMaxmind } = useMaxmind();
+// Skip the info-mask blur on waiting/error placeholders (not a real IP).
+const maskAttr = createMaskGate(t);
+const isStarted = ref(false);
+const userPreferences = computed(() => store.userPreferences);
+const isSimpleMode = computed(() => userPreferences.value.simpleMode);
+// Sticky settled flag for the section's banner slot.
+const hasEverSettled = ref(false);
 
+const { dotClass, textClass } = useStatusTone();
+
+// Business status → 4 tone levels
+const toneOf = (leak) => ipFieldTone(leak.ip, {
+  waitLabels: t('dnsleaktest.StatusWait'),
+  errorLabels: t('dnsleaktest.StatusError'),
+});
+
+
+// Status
+const isFieldPending = (value) => isFieldPendingShared(value, {
+  waitLabels: t('dnsleaktest.StatusWait'),
+  errorLabels: t('dnsleaktest.StatusError'),
+});
 
 const createDefaultCard = () => ({
   name: t('dnsleaktest.Name'),
@@ -83,115 +151,54 @@ const createDefaultCard = () => ({
   org: t('dnsleaktest.StatusWait'),
 });
 
-const leakTest = reactive([
-  { ...createDefaultCard(), id: "ipapi1" },
-  { ...createDefaultCard(), id: "ipapi2" },
-  { ...createDefaultCard(), id: "sfshark1" },
-  { ...createDefaultCard(), id: "sfshark2" },
-]);
+const leakTest = reactive(PROVIDERS.map((p) => ({
+  ...createDefaultCard(),
+  id: p.id,
+  providerName: p.name,
+})));
 
-const isStarted = ref(false);
-
-// 生成 32 位随机字符串
-const generate32DigitString = () => {
-  const unixTime = Date.now().toString();
-  const fixedString = "jason5ng32";
-  const randomString = Math.random().toString(36).substring(2, 11);
-
-  return unixTime + fixedString + randomString;
+// Apply MaxMind lookup to a card that already has a resolved leak IP.
+const applyMaxMindGeo = async (index, ip) => {
+  const geo = await lookupMaxmind(ip);
+  if (geo) {
+    leakTest[index].country_code = geo.country_code;
+    leakTest[index].country = geo.country;
+    leakTest[index].org = geo.org;
+    return;
+  }
+  leakTest[index].country = t('dnsleaktest.StatusError');
+  leakTest[index].country_code = '';
+  leakTest[index].org = t('dnsleaktest.StatusError');
 };
 
-// 生成 14 位随机字符串
-const generate14DigitString = () => {
-  const fixedString = "jn32";
-  const randomString = Math.random().toString(36).substring(2, 11);
-
-  return fixedString + randomString;
+const markLeakCardError = (index) => {
+  leakTest[index].ip = t('dnsleaktest.StatusError');
+  leakTest[index].country = t('dnsleaktest.StatusError');
+  leakTest[index].country_code = '';
+  leakTest[index].org = t('dnsleaktest.StatusError');
 };
 
-// DNS 泄露测试 1
-const fetchLeakTestIpApiCom = (index) => {
-  return new Promise((resolve, reject) => {
-    const urlString = generate32DigitString();
-    const url = `https://${urlString}.edns.ip-api.com/json`;
-
-    fetch(url)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Network response was not ok");
-        }
-        return response.json();
-      })
-      .then((data) => {
-        if (data.dns && "geo" in data.dns && "ip" in data.dns) {
-          const geoSplit = data.dns.geo.split(" - ");
-          leakTest[index].country_code = countryLookup.byCountry(geoSplit[0]).iso2;
-          leakTest[index].country = getCountryName(leakTest[index].country_code, lang.value);
-          leakTest[index].org = geoSplit[1] || '';
-          leakTest[index].ip = data.dns.ip;
-          resolve();
-        } else {
-          console.error("Unexpected data structure:", data);
-          reject(new Error("Unexpected data structure"));
-        }
-      })
-      .catch((error) => {
-        console.error("Error fetching leak test data:", error);
-        leakTest[index].country = t('dnsleaktest.StatusError');
-        leakTest[index].ip = t('dnsleaktest.StatusError');
-        leakTest[index].country_code = '';
-        leakTest[index].org = '';
-        reject(error);
-      });
-  });
+// Run one provider against its card slot, with retry (3 attempts, fresh
+// prefix per attempt — see `runWithRetry` in utils/dnsleaks). On full
+// failure (all attempts threw) the card is flipped to the error state.
+const runProvider = async (index, provider) => {
+  try {
+    const { ip } = await runWithRetry(provider);
+    leakTest[index].ip = ip;
+    await applyMaxMindGeo(index, ip);
+  } catch (error) {
+    console.error('Error fetching leak test data:', error);
+    markLeakCardError(index);
+  }
 };
 
-// DNS 泄露测试 2
-const fetchLeakTestSfSharkCom = (index, key) => {
-  return new Promise((resolve, reject) => {
-    const urlString = generate14DigitString();
-    const url = `https://${urlString}.ipv4.surfsharkdns.com`;
-
-    fetch(url)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Network response was not ok");
-        }
-        return response.json();
-      })
-      .then((data) => {
-        const getKey = Object.keys(data)[key];
-        const keyEntry = data[getKey];
-
-        if (keyEntry && keyEntry.CountryCode && keyEntry.IP) {
-          leakTest[index].country_code = keyEntry.CountryCode;
-          leakTest[index].country = getCountryName(keyEntry.CountryCode, lang.value);
-          leakTest[index].org = keyEntry.ISP || '';
-          leakTest[index].ip = keyEntry.IP;
-          resolve();
-        } else {
-          console.error("Unexpected data structure:", data);
-          reject(new Error("Unexpected data structure"));
-        }
-      })
-      .catch((error) => {
-        console.error("Error fetching leak test data:", error);
-        leakTest[index].ip = t('dnsleaktest.StatusError');
-        leakTest[index].country = t('dnsleaktest.StatusError');
-        leakTest[index].country_code = '';
-        leakTest[index].org = '';
-        reject(error);
-      });
-  });
-};
-
-// 检查所有 DNS 泄露测试
+// Check all. Staggers startup by 300ms per provider to avoid a thundering-
+// herd on first paint.
 const checkAllDNSLeakTest = async (isRefresh) => {
   isStarted.value = true;
   if (isRefresh) {
     trackEvent('Section', 'RefreshClick', 'DNSLeakTest');
     leakTest.forEach((server) => {
-      server.geo = t('dnsleaktest.StatusWait');
       server.ip = t('dnsleaktest.StatusWait');
       server.country = t('dnsleaktest.StatusWait');
       server.country_code = '';
@@ -199,48 +206,46 @@ const checkAllDNSLeakTest = async (isRefresh) => {
     });
   }
 
-  // 设置延迟请求函数
-  const delayedFetch = (fetchFunction, index, key, delay) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        fetchFunction(index, key).then(resolve).catch(resolve);  // 无论成功或失败都会解决
-      }, delay);
-    });
-  };
+  const delayedRun = (provider, index, delay) => new Promise((resolve) => {
+    setTimeout(() => {
+      runProvider(index, provider).then(resolve, resolve);
+    }, delay);
+  });
 
-  // 批量请求
-  const promises = [
-    delayedFetch(fetchLeakTestIpApiCom, 0, null, 100),
-    delayedFetch(fetchLeakTestIpApiCom, 1, null, 1000),
-    delayedFetch(fetchLeakTestSfSharkCom, 2, 0, 100),
-    delayedFetch(fetchLeakTestSfSharkCom, 3, 0, 1000)
-  ];
+  const promises = PROVIDERS.map((provider, index) =>
+    delayedRun(provider, index, index * 200),
+  );
 
-  // 最长等待 6 秒
   const allSettledPromise = Promise.allSettled(promises);
   const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 6000));
 
-  // 等待所有请求完成或超时
   return Promise.race([allSettledPromise, timeoutPromise]).then(() => {
-    store.setLoadingStatus('dnsleaktest', true);
+    store.setLoadingStatus('DNSLeakTest', true);
+    // Local sticky flag for the Enhanced DNS Leak Test banner
+    hasEverSettled.value = true;
+    // Domain event: snapshot for the report collector (cards whose ip slot
+    // still holds a wait/error label are dropped by the builder).
+    emitAppEvent('dnsleak:finished', {
+      providers: leakTest.map((card) => ({
+        id: card.id,
+        name: card.providerName,
+        ip: card.ip,
+        country_code: card.country_code,
+        org: card.org,
+      })),
+    });
   });
 };
 
+// Command owner: run all leak providers. Resolves with the next
+// dnsleak:finished snapshot.
+useAppCommand('dnsleak:run', ({ isRefresh = false } = {}) => {
+  const finished = waitForAppEvent('dnsleak:finished');
+  checkAllDNSLeakTest(isRefresh);
+  return finished;
+});
 
 onMounted(() => {
-  store.setMountingStatus('dnsleaktest', true);
-});
-
-defineExpose({
-  checkAllDNSLeakTest,
-  leakTest
+  store.setMountingStatus('DNSLeakTest', true);
 });
 </script>
-
-<style scoped>
-.jn-org {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-</style>

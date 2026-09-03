@@ -1,383 +1,386 @@
 <template>
-    <!-- Offcanvas Preferences -->
-    <div :data-bs-theme="isDarkMode ? 'dark' : 'light'" :class="[isMobile ? ' w-100' : '']"
-        class="offcanvas offcanvas-start h-100 border-0 mt-5" tabindex="-1" id="offcanvasPreferences"
-        aria-labelledby="offcanvasPreferencesLabel">
-        <div class="offcanvas-header mt-3">
-            <h5 class="offcanvas-title"><i class="bi bi-toggles"></i>&nbsp;&nbsp;{{
-                t('nav.preferences.title') }}
-            </h5>
-            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-        </div>
-        <div class="offcanvas-body pt-0 m-2">
-            <div class="preferences-tip">{{ t('nav.preferences.preferenceTips') }}</div>
+  <!-- Preferences panel -->
+  <Sheet :open="isOpen" @update:open="onOpenChange">
+    <SheetContent side="left" :title="t('nav.preferences.title')"
+      class="flex flex-col p-0 gap-0 w-full max-w-full md:w-125 md:max-w-125">
+      <!-- Header -->
+      <header class="flex items-center justify-between gap-2 px-4 py-3 border-b shrink-0">
+        <h2 class="flex items-center gap-2 text-base font-semibold m-0">
+          <Cog class="size-4 text-muted-foreground" />
+          {{ t('nav.preferences.title') }}
+        </h2>
+        <SheetClose
+          class="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" />
+      </header>
 
-            <!-- 语言设置 -->
+      <!-- Content (scrollable) -->
+      <div class="flex-1 overflow-y-auto px-5 py-5 space-y-6">
+        <!-- Top note -->
+        <p class="text-xs text-muted-foreground leading-relaxed">
+          {{ t('nav.preferences.preferenceTips') }}
+        </p>
 
-            <div id="Pref_language">
-                <div class="form-label col-12 preferences-title"><i class="bi bi-translate"></i> {{
-                    t('nav.preferences.language') }}</div>
-                <div class="btn-group-vertical col-auto w-50 mb-2" role="group" aria-label="Color Scheme">
-                    <template v-for="lang in ['auto','zh', 'en', 'fr','tr']">
-                        <input type="radio" class="btn-check" :name="'language' + lang" :id="'language' + lang"
-                            autocomplete="off" :value="lang" v-model="userPreferences.lang"
-                            @change="prefLanguage(lang)">
-                        <label class="btn jn-number text-start" :class="{
-                            'btn-outline-dark': !isDarkMode,
-                            'btn-outline-light': isDarkMode,
-                            'active fw-bold': userPreferences.lang === lang
-                        }" :for="'language' + lang">
-                            <span v-if="lang === 'zh'"><i class="fi fi-cn"></i> 中文&nbsp;</span>
-                            <span v-else-if="lang === 'en'"><i class="fi fi-us"></i> English&nbsp;</span>
-                            <span v-else-if="lang === 'fr'"><i class="fi fi-fr"></i> Français&nbsp;</span>
-                            <span v-else-if="lang === 'tr'"><i class="fi fi-tr"></i> Türkçe&nbsp;</span>
-                            <span v-else>{{ t('nav.preferences.systemAuto') }}&nbsp;</span>
-                            <i class="bi bi-check2-circle" v-if="userPreferences.lang === lang"></i>
-                        </label>
-                    </template>
-                </div>
-                <div class="preferences-tip">{{ t('nav.preferences.languageTips') }}</div>
+        <!-- Language -->
+        <section id="Pref_language">
+          <SectionTitle :icon="Languages">{{ t('nav.preferences.language') }}</SectionTitle>
+          <Select :model-value="userPreferences.lang" @update:model-value="(v) => v && prefLanguage(v)">
+            <SelectTrigger class="w-full shadow-none">
+              <SelectValue>
+                <span class="inline-flex items-center gap-2">
+                  {{ currentLang.label }}
+                </span>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="lang in langOptions" :key="lang.value" :value="lang.value">
+                <span class="inline-flex items-center gap-2">
+                  {{ lang.label }}
+                  <!-- Partial translation: literal "Beta", deliberately untranslated. -->
+                  <Badge v-if="lang.beta" variant="outline" class="px-1.5 text-[10px] font-medium">Beta</Badge>
+                </span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <SectionTip>{{ t('nav.preferences.languageTips') }}</SectionTip>
+        </section>
+
+        <!-- Color Scheme -->
+        <section id="Pref_colorScheme">
+          <SectionTitle :icon="Palette">{{ t('nav.preferences.colorScheme') }}</SectionTitle>
+          <ToggleGroup :model-value="userPreferences.theme" type="single" class="w-full" variant="outline"
+            @update:model-value="(v) => v && prefTheme(v)">
+            <ToggleGroupItem v-for="opt in themeOptions" :key="opt.value" :value="opt.value"
+              class="flex-1 gap-1.5 cursor-pointer" :aria-label="opt.label" :title="opt.label">
+              <component :is="opt.icon" class="size-4" />
+              {{ opt.label }}
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </section>
+
+        <!-- IP Sources Count -->
+        <section id="Pref_ipCards">
+          <SectionTitle :icon="LayoutGrid">{{ t('nav.preferences.ipSourcesToCheck') }}</SectionTitle>
+          <ToggleGroup :model-value="String(userPreferences.ipCardsToShow)" type="single" class="w-full"
+            variant="outline" @update:model-value="(v) => v && prefipCards(Number(v))">
+            <ToggleGroupItem v-for="num in [2, 4, 6]" :key="num" :value="String(num)"
+              class="flex-1 gap-1.5 cursor-pointer" :aria-label="num.toString()" :title="num.toString()">
+              {{ num }}
+            </ToggleGroupItem>
+          </ToggleGroup>
+          <SectionTip>{{ t('nav.preferences.ipSourcesToCheckTips') }}</SectionTip>
+        </section>
+
+        <!-- IP Geo DB -->
+        <section id="Pref_ipGeoSource">
+          <SectionTitle :icon="Database">{{ t('nav.preferences.ipDB') }}</SectionTitle>
+          <Select :model-value="String(userPreferences.ipGeoSource)"
+            @update:model-value="(v) => v != null && prefipGeoSource(Number(v))">
+            <SelectTrigger class="w-full shadow-none">
+              <SelectValue>{{ currentIpDB?.text || '—' }}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="ipdb in ipDBs" :key="ipdb.id" :value="String(ipdb.id)" :disabled="!ipdb.enabled"
+                :class="{ 'line-through cursor-not-allowed': !ipdb.enabled }">
+                {{ ipdb.text }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <SectionTip>{{ t('nav.preferences.ipDBTips') }}</SectionTip>
+        </section>
+
+        <!-- Auto Run on Startup — per-module switches only. IP info always
+                     runs (no switch). The Connectivity test options live in their own
+                     section below: they apply to manual runs too, not just startup. -->
+        <section id="Pref_autoRun">
+          <SectionTitle :icon="Play">{{ t('nav.preferences.autoRun') }}</SectionTitle>
+          <div class="rounded-lg border bg-card divide-y">
+            <PrefRow id="autoRunConnectivity" :label="t('nav.Connectivity')"
+              :model-value="userPreferences.autoRunConnectivity"
+              @update:model-value="(v) => prefAutoRun('autoRunConnectivity', v)" />
+
+            <PrefRow id="autoRunWebRTC" :label="t('nav.WebRTC')" :model-value="userPreferences.autoRunWebRTC"
+              @update:model-value="(v) => prefAutoRun('autoRunWebRTC', v)" />
+
+            <PrefRow id="autoRunDnsLeak" :label="t('nav.DNSLeakTest')" :model-value="userPreferences.autoRunDnsLeak"
+              @update:model-value="(v) => prefAutoRun('autoRunDnsLeak', v)" />
+          </div>
+          <SectionTip>{{ t('nav.preferences.autoRunTips') }}</SectionTip>
+        </section>
+
+        <!-- Connectivity Test: default list + its three switches. Labels
+                     stay terse; the section title carries the context. -->
+        <section id="Pref_connectivity">
+          <SectionTitle :icon="Activity">{{ t('nav.Connectivity') }}</SectionTitle>
+          <div class="rounded-lg border bg-card divide-y">
+            <!-- Default list: PrefRow's two-line rhythm with a Select. -->
+            <div class="p-3 pb-2">
+              <div class="flex items-center justify-between gap-3">
+                <span class="min-w-0 flex-1 text-sm font-medium select-none">
+                  {{ t('nav.preferences.connectivity.defaultList') }}</span>
+                <Select :model-value="currentDefaultListId"
+                  @update:model-value="(v) => v && prefConnectivityDefaultList(v)">
+                  <SelectTrigger class="w-40 shrink-0 shadow-none">
+                    <SelectValue><span class="truncate">{{ currentDefaultListName }}</span></SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem v-for="list in connectivityLists" :key="list.id" :value="list.id">
+                      <span class="block max-w-64 truncate">{{ connectivityListName(list) }}</span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <p class="mt-1 text-xs text-muted-foreground leading-relaxed">
+                {{ t('nav.preferences.connectivity.defaultListTips') }}</p>
             </div>
 
-            <!-- 主题方案 -->
+            <PrefRow id="ConnectivityMultipleTests" :label="t('nav.preferences.connectivity.multipleTests')"
+              :tip="t('nav.preferences.connectivity.multipleTestsTips')"
+              :model-value="userPreferences.connectivityMultipleTests"
+              @update:model-value="prefConnectivityMultipleTests" />
 
-            <div id="Pref_colorScheme">
-                <div class="form-label col-12 preferences-title"><i class="bi bi-palette-fill"></i> {{
-                    t('nav.preferences.colorScheme') }}</div>
-                <div class="btn-group col-auto" role="group" aria-label="Color Scheme">
-                    <template v-for="theme in ['auto', 'light', 'dark']">
-                        <input type="radio" class="btn-check" :name="'darkMode' + theme" :id="'darkMode' + theme"
-                            autocomplete="off" :value="theme" v-model="userPreferences.theme"
-                            @change="prefTheme(theme)">
-                        <label class="btn" :class="{
-                            'btn-outline-dark': !isDarkMode,
-                            'btn-outline-light': isDarkMode,
-                            'active fw-bold': userPreferences.theme === theme
-                        }" :for="'darkMode' + theme">
-                            <span v-if="theme === 'light'"><i class="bi bi-brightness-high"></i> {{
-                                t('nav.preferences.colorLight') }}</span>
-                            <span v-else-if="theme === 'dark'"><i class="bi bi-moon-stars"></i> {{
-                                t('nav.preferences.colorDark') }}</span>
-                            <span v-else>{{ t('nav.preferences.systemAuto') }}</span>
-                        </label>
-                    </template>
-                </div>
+            <PrefRow id="ConnectivityNotifications" :label="t('nav.preferences.connectivity.notifications')"
+              :tip="t('nav.preferences.connectivity.notificationsTips')"
+              :model-value="userPreferences.popupConnectivityNotifications"
+              @update:model-value="prefconnectivityShowNoti" />
+
+            <PrefRow id="ConnectivityCardTitleOpensSite" :label="t('nav.preferences.connectivity.titleOpensSite')"
+              :tip="t('nav.preferences.connectivity.titleOpensSiteTips')"
+              :model-value="userPreferences.connectivityCardTitleOpensSite"
+              @update:model-value="prefConnectivityCardTitleOpensSite" />
+          </div>
+        </section>
+
+        <!-- App Settings -->
+        <section id="Pref_appSettings">
+          <SectionTitle :icon="AppWindow">{{ t('nav.preferences.appSettings') }}</SectionTitle>
+          <div class="rounded-lg border bg-card divide-y">
+            <PrefRow id="simpleMode" :label="t('nav.preferences.simpleMode')" :tip="t('nav.preferences.simpleModeTips')"
+              :model-value="userPreferences.simpleMode" @update:model-value="prefSimpleMode" />
+          </div>
+        </section>
+
+        <!-- IP History -->
+        <section id="Pref_ipHistory">
+          <SectionTitle :icon="History">{{ t('nav.preferences.ipHistory') }}</SectionTitle>
+          <div class="rounded-lg border bg-card divide-y">
+            <PrefRow id="ipHistoryEnabled" :label="t('nav.preferences.ipHistoryEnabled')"
+              :model-value="userPreferences.ipHistoryEnabled" @update:model-value="prefIpHistoryEnabled" />
+
+            <!-- Retention slider: live number while dragging, preference
+                             committed on release so pruning never fires mid-drag. -->
+            <div class="p-3" :class="{ 'opacity-50': !userPreferences.ipHistoryEnabled }">
+              <div class="flex items-center justify-between gap-3 mb-3">
+                <label for="ipHistoryDays" class="text-sm font-medium select-none">
+                  {{ t('nav.preferences.ipHistoryDays') }}
+                </label>
+                <span class="text-sm font-mono tabular-nums text-muted-foreground">
+                  {{ ipHistoryDaysDraft }}
+                </span>
+              </div>
+              <Slider id="ipHistoryDays" :model-value="[ipHistoryDaysDraft]" :min="1" :max="90" :step="1"
+                :disabled="!userPreferences.ipHistoryEnabled"
+                @update:model-value="(v) => { if (v?.[0] != null) ipHistoryDaysDraft = v[0]; }"
+                @value-commit="(v) => prefIpHistoryDays(v?.[0])" />
             </div>
-
-            <!-- IP 源 -->
-
-            <div id="Pref_ipCards">
-                <div class="form-label col-12 preferences-title">
-                    <i class="bi bi-ui-checks-grid"></i> {{ t('nav.preferences.ipSourcesToCheck') }}
-                </div>
-                <div class="btn-group col-auto w-50 mb-2" role="group" aria-label="ipCards">
-                    <template v-for="num in [3, 6]">
-                        <input v-model="userPreferences.ipCardsToShow" type="radio" class="btn-check"
-                            :name="'ipCards_' + num" :id="'ipCards_' + num" autocomplete="off" :value=num
-                            @change="prefipCards(num)">
-                        <label class="btn jn-number" :class="{
-                            'btn-outline-dark': !isDarkMode,
-                            'btn-outline-light': isDarkMode,
-                            'active fw-bold': userPreferences.ipCardsToShow === num
-                        }" :for="'ipCards_' + num">{{ num
-                            }}</label>
-                    </template>
-                </div>
-                <div class="preferences-tip">{{ t('nav.preferences.ipSourcesToCheckTips') }}</div>
-            </div>
-
-            <!-- IP 地理位置数据库 -->
-
-            <div id="Pref_ipGeoSource">
-                <div class="form-label col-12 preferences-title">
-                    <i class="bi bi-ui-checks-grid"></i> {{ t('nav.preferences.ipDB') }}
-                </div>
-                <div class="btn-group-vertical col-auto w-50 mb-2" role="group" aria-label="ipGeoSource">
-                    <template v-for="ipdb in ipDBs">
-                        <input v-model="userPreferences.ipGeoSource" type="radio" class="btn-check"
-                            :name="'ipGeoSource_' + ipdb.text" :id="'ipGeoSource_' + ipdb.id" autocomplete="off"
-                            :value=ipdb.id @change="prefipGeoSource(ipdb.id)">
-                        <label class="btn jn-number text-start" :class="{
-                            'btn-outline-dark': !isDarkMode,
-                            'btn-outline-light': isDarkMode,
-                            'active fw-bold': userPreferences.ipGeoSource === ipdb.id,
-                            'jn-disabled-button': !ipdb.enabled
-                        }" :for="'ipGeoSource_' + ipdb.id" :aria-disabled="!ipdb.enabled" :aria-label="ipdb.text">
-                            <span :class="[ipdb.enabled ? '' : 'jn-disabled-text']">{{ ipdb.text }}&nbsp;</span>
-                            <i class="bi bi-check2-circle" v-if="userPreferences.ipGeoSource === ipdb.id"></i>
-                        </label>
-                    </template>
-                </div>
-                <div class="preferences-tip">{{ t('nav.preferences.ipDBTips') }}</div>
-            </div>
-
-            <!-- 应用设置 -->
-
-            <div id="Pref_appSettings">
-                <div class="form-label col-12 preferences-title"><i class="bi bi-window-dock"></i> {{
-                    t('nav.preferences.appSettings') }}</div>
-                <ul class="list-group">
-                    <li class="list-group-item d-flex justify-content-between align-items-start"
-                        :class="[isDarkMode ? 'border-light' : 'border-dark']">
-                        <div class="me-auto">
-                            <div class="fw-bold"><label class="form-check-label" for="autoStart">{{
-                                    t('nav.preferences.autoRun')
-                                    }}</label>
-                            </div>
-                            <div class="preferences-tip">{{ t('nav.preferences.autoRunTips') }}</div>
-                        </div>
-                        <div class="form-check form-switch col-auto ">
-                            <input class="form-check-input" :class="[isDarkMode ? 'jn-check-dark' : 'jn-check-light']"
-                                type="checkbox" role="switch" id="autoStart" :checked="userPreferences.autoStart"
-                                @change="prefAutoStart($event.target.checked)">
-                        </div>
-                    </li>
-
-                    <li class="list-group-item d-flex justify-content-between align-items-start"
-                        :class="[isDarkMode ? 'border-light' : 'border-dark']" v-if="userPreferences.autoStart">
-                        <div class="me-auto">
-                            <div class="fw-bold"><label class="form-check-label" for="ConnectivityRefresh">{{
-                                    t('nav.preferences.connectivityAutoRefresh') }}</label></div>
-                            <div class="preferences-tip">{{ t('nav.preferences.connectivityAutoRefreshTips') }}</div>
-                        </div>
-                        <div class="form-check form-switch col-auto ">
-                            <input class="form-check-input" :class="[isDarkMode ? 'jn-check-dark' : 'jn-check-light']"
-                                type="checkbox" role="switch" id="ConnectivityRefresh"
-                                :checked="userPreferences.connectivityAutoRefresh"
-                                @change="prefConnectivityRefresh($event.target.checked)">
-                        </div>
-                    </li>
-
-                    <li class="list-group-item d-flex justify-content-between align-items-start"
-                        :class="[isDarkMode ? 'border-light' : 'border-dark']" v-if="configs.map">
-                        <div class="me-auto">
-                            <div class="fw-bold"><label class="form-check-label" for="showMap">{{
-                                    t('nav.preferences.showMap')
-                                    }}</label>
-                            </div>
-                            <div class="preferences-tip">{{ t('nav.preferences.showMapTips') }}</div>
-                        </div>
-                        <div class="form-check form-switch col-auto ">
-                            <input class="form-check-input" :class="[isDarkMode ? 'jn-check-dark' : 'jn-check-light']"
-                                type="checkbox" role="switch" id="showMap" :checked="userPreferences.showMap"
-                                @change="prefShowMap($event.target.checked)">
-                        </div>
-                    </li>
-
-                    <li class="list-group-item d-flex justify-content-between align-items-start"
-                        :class="[isDarkMode ? 'border-light' : 'border-dark']" v-if="isMobile">
-                        <div class="me-auto">
-                            <div class="fw-bold"><label class="form-check-label" for="simpleMode">{{
-                                    t('nav.preferences.simpleMode')
-                                    }}</label></div>
-                            <div class="preferences-tip">{{ t('nav.preferences.simpleModeTips') }}</div>
-                        </div>
-                        <div class="form-check form-switch col-auto ">
-                            <input class="form-check-input" :class="[isDarkMode ? 'jn-check-dark' : 'jn-check-light']"
-                                type="checkbox" role="switch" id="simpleMode" :checked="userPreferences.simpleMode"
-                                @change="prefSimpleMode($event.target.checked)">
-                        </div>
-                    </li>
-
-                    <li class="list-group-item d-flex justify-content-between align-items-start"
-                        :class="[isDarkMode ? 'border-light' : 'border-dark']">
-                        <div class="me-auto">
-                            <div class="fw-bold"><label class="form-check-label" for="ConnectivityNotifications">{{
-                                    t('nav.preferences.popupConnectivityNotifications') }}</label>
-                            </div>
-                            <div class="preferences-tip">{{ t('nav.preferences.popupConnectivityNotificationsTips') }}
-                            </div>
-                        </div>
-                        <div class="form-check form-switch col-auto ">
-                            <input class="form-check-input" :class="[isDarkMode ? 'jn-check-dark' : 'jn-check-light']"
-                                type="checkbox" role="switch" id="ConnectivityNotifications"
-                                :checked="userPreferences.popupConnectivityNotifications"
-                                @change="prefconnectivityShowNoti($event.target.checked)">
-                        </div>
-                    </li>
-
-                </ul>
-            </div>
-
-            <div id="offcanvasPlaceholder mb-5" class="jn-placeholder mb-5">
-            </div>
-
-        </div>
-    </div>
-
+          </div>
+          <SectionTip>{{ t('nav.preferences.ipHistoryTips') }}</SectionTip>
+        </section>
+      </div>
+    </SheetContent>
+  </Sheet>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { computed, ref, watch, h } from 'vue';
 import { useMainStore } from '@/store';
 import { useI18n } from 'vue-i18n';
-import { trackEvent } from '@/utils/use-analytics';
+import { trackEvent } from '@/utils/analytics';
+import { emitAppEvent } from '@/utils/app-events.js';
+import { clampRetentionDays } from '@/utils/ip-history.js';
+import { LOCALES } from '@/utils/locale-registry.js';
+import { MINE_LIST_ID } from '@/data/connectivity-import-lists.js';
+import { Sheet, SheetContent, SheetClose } from '@/components/ui/sheet';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import {
+  Activity,
+  AppWindow,
+  Database,
+  History,
+  Languages,
+  LaptopMinimal,
+  LayoutGrid,
+  Moon,
+  Palette,
+  Play,
+  Cog,
+  Sun,
+} from '@lucide/vue';
 
 const { t } = useI18n();
 
 const store = useMainStore();
-const isDarkMode = computed(() => store.isDarkMode);
-const isMobile = computed(() => store.isMobile);
-const configs = computed(() => store.configs);
 const userPreferences = computed(() => store.userPreferences);
 const ipDBs = computed(() => store.ipDBs);
-const isSignedIn = computed(() => store.isSignedIn);
 
-const prefersDarkMode = ref(window.matchMedia('(prefers-color-scheme: dark)').matches);
-const mediaQueryList = window.matchMedia('(prefers-color-scheme: dark)');
-
-const handleThemeChange = (event) => {
-    prefersDarkMode.value = event.matches;
-    const theme = userPreferences.value.theme;
-    if (theme === 'auto') {
-        store.setDarkMode(prefersDarkMode.value);
-    } else if (theme === 'light') {
-        store.setDarkMode(false);
-    } else if (theme === 'dark') {
-        store.setDarkMode(true);
-    }
-    updateBodyClass();
-    PWAColor();
+const isOpen = computed(() => store.openSheet === 'preferences');
+const onOpenChange = (val) => {
+  store.setOpenSheet(val ? 'preferences' : null);
 };
 
-const updateBodyClass = () => {
-    document.body.classList.toggle("body-dark-mode", isDarkMode.value);
-};
+// Text-only options — the picker deliberately shows no flags: a language
+// isn't a country (e.g. English under a US flag reads wrong to Brits).
+const langOptions = [
+  { value: 'auto', label: t('nav.preferences.systemAuto') },
+  ...LOCALES.map(({ code, nativeName, status }) => ({
+    value: code, label: nativeName, beta: status === 'beta',
+  })),
+];
+const currentLang = computed(() =>
+  langOptions.find(l => l.value === userPreferences.value.lang) || langOptions[0]
+);
 
-const PWAColor = () => {
-    const themeColor = document.querySelector('meta[name="theme-color"]');
-    const backgroundColor = document.querySelector('meta[name="background-color"]');
-    const color = isDarkMode.value ? "#171a1d" : "#f8f9fa";
-    const bgColor = isDarkMode.value ? "#212529" : "#ffffff";
-    themeColor.setAttribute("content", color);
-    backgroundColor.setAttribute("content", bgColor);
-};
+// Theme options (3 options: light / dark / auto)
+const themeOptions = [
+  { value: 'light', label: t('nav.preferences.colorLight'), icon: Sun },
+  { value: 'dark', label: t('nav.preferences.colorDark'), icon: Moon },
+  { value: 'auto', label: t('nav.preferences.systemAuto'), icon: LaptopMinimal },
+];
 
-const updateIPDBs = () => {
-    if (configs.value && Object.keys(configs.value).length > 0) {
-        store.updateIPDBs({ id: 0, enabled: configs.value.ipChecking });
-        store.updateIPDBs({ id: 1, enabled: configs.value.ipInfo });
-        store.updateIPDBs({ id: 3, enabled: configs.value.ipapiis });
-        store.updateIPDBs({ id: 4, enabled: configs.value.ip2location });
-    }
-};
+// Current selected IP DB (for SelectValue display)
+const currentIpDB = computed(() =>
+  ipDBs.value.find(db => db.id === userPreferences.value.ipGeoSource)
+);
 
 const prefTheme = (value) => {
-    switch (value) {
-        case 'light':
-            store.setDarkMode(false);
-            break;
-        case 'dark':
-            store.setDarkMode(true);
-            break;
-        case 'auto':
-            handleThemeChange({ matches: mediaQueryList.matches });
-            break;
-    }
-    updateBodyClass();
-    PWAColor();
-    store.updatePreference('theme', value);
-    trackEvent('Nav', 'PreferenceClick', 'Theme');
+  // Application is handled by use-theme.js, which watches this preference.
+  store.updatePreference('theme', value);
+  trackEvent('Nav', 'PreferenceClick', 'Theme');
 };
 
 const prefLanguage = (value) => {
-    store.updatePreference('lang', value);
-    trackEvent('Nav', 'PrefereceClick', 'LanguageChange');
+  store.updatePreference('lang', value);
+  trackEvent('Nav', 'PrefereceClick', 'LanguageChange');
 };
 
-const prefConnectivityRefresh = (value) => {
-    store.updatePreference('connectivityAutoRefresh', value);
-    if (isSignedIn.value && !store.userAchievements.ResourceHog.achieved) {
-        store.setTriggerUpdateAchievements('ResourceHog');
-    }
-    trackEvent('Nav', 'PrefereceClick', 'ConnectivityRefresh');
+// Which Connectivity list the section opens on; a stale preference falls
+// back to Mine (whose display name is localized, never stored).
+const connectivityLists = computed(() => userPreferences.value.connectivityLists?.lists || []);
+const connectivityListName = (list) => (list.id === MINE_LIST_ID ? t('connectivity.lists.Mine') : list.name);
+const currentDefaultListId = computed(() => {
+  const preferred = userPreferences.value.connectivityDefaultListId;
+  return connectivityLists.value.some((l) => l.id === preferred) ? preferred : MINE_LIST_ID;
+});
+const currentDefaultListName = computed(() => {
+  const list = connectivityLists.value.find((l) => l.id === currentDefaultListId.value);
+  return list ? connectivityListName(list) : '—';
+});
+const prefConnectivityDefaultList = (value) => {
+  store.updatePreference('connectivityDefaultListId', value);
+  trackEvent('Nav', 'PrefereceClick', 'ConnectivityDefaultList');
 };
 
-const prefShowMap = (value) => {
-    store.updatePreference('showMap', value);
-    trackEvent('Nav', 'PrefereceClick', 'ShowMap');
+const prefConnectivityMultipleTests = (value) => {
+  store.updatePreference('connectivityMultipleTests', value);
+  // Achievement rule (ResourceHog) lives in data/achievement-rules.js.
+  emitAppEvent('preferences:multiple-tests-toggled');
+  trackEvent('Nav', 'PrefereceClick', 'ConnectivityMultipleTests');
 };
 
 const prefSimpleMode = (value) => {
-    store.updatePreference('simpleMode', value);
-    trackEvent('Nav', 'PrefereceClick', 'SimpleMode');
+  store.updatePreference('simpleMode', value);
+  trackEvent('Nav', 'PrefereceClick', 'SimpleMode');
 };
 
-const prefAutoStart = (value) => {
-    store.updatePreference('autoStart', value);
-    trackEvent('Nav', 'PrefereceClick', 'AutoStart');
-    if (isSignedIn.value && !value && !store.userAchievements.EnergySaver.achieved) {
-        store.setTriggerUpdateAchievements('EnergySaver');
-    }
+// Per-module startup auto-run toggle. The EnergySaver achievement rule
+// (earned once every auto-run module is off) lives in data/achievement-rules.js.
+const prefAutoRun = (key, value) => {
+  store.updatePreference(key, value);
+  trackEvent('Nav', 'PrefereceClick', key);
+  const prefs = userPreferences.value;
+  emitAppEvent('preferences:autorun-changed', {
+    allAutoRunOff: !prefs.autoRunConnectivity && !prefs.autoRunWebRTC && !prefs.autoRunDnsLeak,
+  });
 };
 
 const prefconnectivityShowNoti = (value) => {
-    store.updatePreference('popupConnectivityNotifications', value);
-    trackEvent('Nav', 'PrefereceClick', 'ConnectivityNotifications');
+  store.updatePreference('popupConnectivityNotifications', value);
+  trackEvent('Nav', 'PrefereceClick', 'ConnectivityNotifications');
+};
+
+const prefConnectivityCardTitleOpensSite = (value) => {
+  store.updatePreference('connectivityCardTitleOpensSite', value);
+  trackEvent('Nav', 'PrefereceClick', 'ConnectivityCardTitleOpensSite');
+};
+
+// IP history recorder: on/off + retention days (1–90). The draft ref feeds the
+// slider's live readout; the preference is written on value-commit only.
+const ipHistoryDaysDraft = ref(clampRetentionDays(userPreferences.value.ipHistoryDays));
+watch(() => userPreferences.value.ipHistoryDays, (v) => {
+  ipHistoryDaysDraft.value = clampRetentionDays(v);
+});
+
+const prefIpHistoryEnabled = (value) => {
+  store.updatePreference('ipHistoryEnabled', value);
+  trackEvent('Nav', 'PrefereceClick', 'IpHistoryEnabled');
+};
+
+const prefIpHistoryDays = (value) => {
+  if (value == null) return;
+  const days = clampRetentionDays(value);
+  ipHistoryDaysDraft.value = days;
+  store.updatePreference('ipHistoryDays', days);
+  trackEvent('Nav', 'PrefereceClick', 'IpHistoryDays');
 };
 
 const prefipCards = (value) => {
-    store.updatePreference('ipCardsToShow', value);
-    trackEvent('Nav', 'PrefereceClick', 'ipCards');
+  store.updatePreference('ipCardsToShow', value);
+  trackEvent('Nav', 'PrefereceClick', 'ipCards');
 };
 
 const prefipGeoSource = (value) => {
-    store.updatePreference('ipGeoSource', value);
-    trackEvent('Nav', 'PrefereceClick', 'ipGeoSource');
-    trackEvent('IPCheck', 'SelectSource', ipDBs.value.find(x => x.id === value).text);
+  store.updatePreference('ipGeoSource', value);
+  trackEvent('Nav', 'PrefereceClick', 'ipGeoSource');
+  trackEvent('IPCheck', 'SelectSource', ipDBs.value.find(x => x.id === value).text);
 };
 
-const toggleMaps = () => {
-    store.updatePreference('showMap', !userPreferences.value.showMap);
-    trackEvent('Nav', 'ToggleClick', 'ShowMap');
-};
+// Section title: lucide icon + text, unified rhythm
+const SectionTitle = (props, { slots }) =>
+  h('h3', { class: 'flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2' }, [
+    props.icon ? h(props.icon, { class: 'size-3.5' }) : null,
+    slots.default?.(),
+  ]);
+SectionTitle.props = ['icon'];
 
-onMounted(() => {
-    mediaQueryList.addEventListener('change', handleThemeChange);
-    handleThemeChange({ matches: mediaQueryList.matches });
-    setTimeout(updateIPDBs, 4000);
-});
+// Section tip text
+const SectionTip = (props, { slots }) =>
+  h('p', { class: 'mt-2 text-xs text-muted-foreground leading-relaxed' }, slots.default?.());
 
-defineExpose({
-    toggleMaps,
-});
+// Preference switch row. Two stacked lines: label + Switch vertically
+// centered on the first, the optional tip full-width on the second (so it
+// runs under the control instead of wrapping beside it). Tip rows trim the
+// bottom padding — the tip's own line-height already provides visual air.
+const PrefRow = (props, { emit }) =>
+  h('div', { class: props.tip ? 'p-3 pb-2' : 'p-3' }, [
+    h('div', { class: 'flex items-center justify-between gap-3' }, [
+      h('label', {
+        for: props.id,
+        class: 'min-w-0 flex-1 text-sm font-medium cursor-pointer select-none',
+      }, props.label),
+      h(Switch, {
+        id: props.id,
+        class: 'shrink-0',
+        modelValue: props.modelValue,
+        'onUpdate:modelValue': (v) => emit('update:modelValue', v),
+      }),
+    ]),
+    props.tip
+      ? h('p', { class: 'mt-1 text-xs text-muted-foreground leading-relaxed' }, props.tip)
+      : null,
+  ]);
+PrefRow.props = ['id', 'label', 'tip', 'modelValue'];
+PrefRow.emits = ['update:modelValue'];
 </script>
-
-<style scoped>
-.preferences-title {
-    margin-top: 12pt;
-    font-weight: 500;
-    margin-bottom: 12pt;
-}
-
-.preferences-tip {
-    font-size: smaller;
-    opacity: 0.7;
-    margin-top: 3pt;
-}
-
-.jn-number {
-    min-width: 40pt;
-}
-
-.jn-margin {
-    margin-top: 42pt;
-}
-
-.jn-placeholder {
-    height: 20pt;
-}
-
-.jn-disabled-text {
-    opacity: 0.5;
-    text-decoration: line-through;
-}
-
-.jn-disabled-button {
-    pointer-events: none;
-}
-
-#offcanvasPreferences {
-    z-index: 1053;
-}
-</style>

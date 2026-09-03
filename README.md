@@ -17,8 +17,11 @@
 
 ![CodeQL](https://github.com/jason5ng32/MyIP/actions/workflows/github-code-scanning/codeql/badge.svg?branch=main)
 ![Docker Build and Push](https://github.com/jason5ng32/MyIP/actions/workflows/docker-image.yml/badge.svg?branch=main)
+[![CI](https://github.com/jason5ng32/MyIP/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jason5ng32/MyIP/actions/workflows/ci.yml)
 
-🇺🇸 [English](README.md) | 🇨🇳 [简体中文](README_ZH.md) | 🇫🇷 [Français](README_FR.md) | 🇹🇷 [Türkçe](README_TR.md)
+[English](README.md) | [简体中文](README_ZH.md) | [繁體中文](README_ZH-TW.md) | [Русский](README_RU.md) | [Français](README_FR.md) | [Português (BR)](README_PT-BR.md)
+
+An open-source, all-in-one IP toolbox: IP lookup from multiple sources, connectivity tests, WebRTC & DNS-leak detection, speed test, MTR, censorship checks, Whois, and more — self-hostable with one Docker command.
 
 👉 Demo: [https://ipcheck.ing](https://ipcheck.ing)
 
@@ -28,133 +31,122 @@ Feel free to bookmark the demo or deploy your own.
 
 </div>
 
-## 👀 Main Features
+## 👀 Features
 
-* 🛜 **View Your IPs**: Detects and displays your local IPs, sourcing from multiple IPv4 and IPv6 providers.
-* 🔍 **Search IP Information**: Provides a tool for querying information about any IP address. 
-* 🕵️ **IP Information**: Presents detailed information for all IP addresses, including country, region, ASN, geographic location, and more.
-* 🚦 **Availability Check**: Tests the accessibility of various websites, such as Google, GitHub, YouTube, ChatGPT, and others.
-* 🚥 **WebRTC Detection**: Identifies the IP address used during WebRTC connections.
-* 🛑 **DNS Leak Test**: Shows DNS endpoint data to evaluate the risk of DNS leaks when using VPNs or proxies.
-* 🚀 **Speed Test**：Test your network speed with edge networks.
-* 🚏 **Proxy Rule Testing**: Test the rule settings of proxy software to ensure their correctness.
-* ⏱️ **Global Latency Test**: Performe lantency tests on servers located in different regions around the world.
-* 📡 **MTR Test**: Perform MTR tests on servers located in different regions around the world.
-* 🔦 **DNS Resolver**: Performs DNS resolution of a domain name from multiple sources and obtains real-time resolution results that can be used for contamination determination.
-* 🚧 **Censorship Check**: Check if a website is blocked in some countries.
-* 📓 **Whois Search**: Perform whois information search for domain names or IP addresses
-* 📀 **MAC Lookup**: Query information of a physical address
-* 🖥️ **Browser Fingerprints**：Multiple ways to caculate your browser fingerprint
-* 📋 **Cybersecurity Checklist**：A comprehensive cybersecurity checklist with a total of 258 items
+### 🪪 Your IP & Identity
 
-## 💪 Also
+* 🛜 **IP Cards**: Detects your IPv4 and IPv6 from multiple independent sources side by side — country, region, city, ASN, organization, and the IP's local time zone.
+* 🔍 **Query IP**: Looks up the same detailed information for any IP address you're curious about.
+* 🧾 **IP History**: Keeps a local record of the IPs you've been seen with, filterable by type and country — stored in your browser only.
+* 🖥️ **Browser Fingerprint**: Calculates your browser fingerprint in multiple ways and shows what makes you identifiable.
 
-* 🌗 **Dark Mode**: Automatically toggles between dark and daylight modes based on system settings, with an option for manual switching.
-* 📱 **Minimalist Mode**: A mobile-optimized mode that shortens page length for quick access to essential information..
-* 📲 **PWA Supported**：Can be added as a desktop app on your phone as well as a Chrome app on your computer.
-* ⌨️ **Keyboard Shortcuts**: Supports keyboard shortcuts for all functions, press `?` to view the shortcut list.
-* 🌍 Based on availability test results, it indicates whether global internet access is currently feasible.
-* 🇺🇸 🇨🇳 🇫🇷 English, Chinese, and French support.
+### 🕵️ Leaks & Privacy
+
+* 🚥 **WebRTC Detection**: Reveals the IP address exposed during WebRTC connections — including whether your browser's privacy hardening is on.
+* 🛑 **DNS Leak Test**: Shows which DNS endpoints resolve your queries, to evaluate the risk of DNS leaks when using VPNs or proxies.
+* 📋 **Security Checklist**: A 258-item personal cybersecurity checklist across 12 areas, with progress saved in your browser.
+
+### 📡 Network Tests
+
+* 🚦 **Connectivity Check**: Tests the reachability of up to 60 sites of your choice, with multi-round minimum-latency results — plus curated import lists, from country packs to AI, social, streaming, gaming, developer, and more. Based on the results, it signals whether global internet access is currently feasible for you.
+* 🚀 **Speed Test**: Measures your download, upload, and latency against edge networks.
+* ⏱️ **Global Latency Test**: Pings your target from probes all over the world — pick countries from all available Globalping probes, grouped by continent.
+* 🚉 **MTR Test**: Runs MTR from globally distributed probes to see the route packets actually take.
+* 🚧 **Censorship Check**: Shows where a website is blocked worldwide — and by what means.
+* 🚏 **Proxy Rule Test**: Verifies that your proxy software's rule configuration works the way you intended.
+
+### 🔦 Lookup & Infrastructure
+
+* 📟 **DNS Resolver**: Resolves a domain through multiple resolvers at once, grouped by country — an easy way to spot hijacking or contamination.
+* 📓 **Whois Search**: Performs Whois lookups for domain names and IP addresses.
+* 🗄️ **MAC Lookup**: Identifies the vendor and details behind a physical address.
+* 🛰️ **ASN Info & Upstream Topology**: Shows AS details, historical announcements for an IP prefix, and the upstream paths from an ASN to the Tier 1 backbone.
+* 📶 **Service Status**: Live availability of well-known services — Claude, OpenAI, GitHub, Cloudflare, and more — from their official status pages, with recent incidents.
+
+### ✨ Platform
+
+* 📤 **Shareable Reports**: Turn your test results into a diagnostic report — a read-only link with auto-expiry, AI-ready Markdown, or JSON.
+* ⌨️ **Curl API**: Get your IP from the terminal with a single `curl` command.
+* 🌍 **Earth Online**: A panel broadcasting global internet outage events as they happen.
+* 🌗 **Dark Mode**: Follows your system automatically, with a manual toggle.
+* 📲 **PWA**: Installable as an app on your phone and as a Chrome app on your desktop.
+* ⚡ **Keyboard Shortcuts**: Every function has one — press `?` to see the list.
+* 🔤 **Multiple Languages**: The UI ships in 6 languages, and adding yours takes one locale pack.
 
 ## 📕 How to Use
 
-### Deploying in a Node Environment
-
-Make sure you have Node.js installed.
-
-Clone the code:
-
-```bash
-git clone https://github.com/jason5ng32/MyIP.git
-```
-
-Install and build:
-
-```bash
-npm install && npm run build
-```
-
-Run:
-
-```bash
-npm start
-```
-
-The program will run on port 18966.
-
 ### Using Docker
 
-Click the 'Deploy to Docker' button at the top to complete the deployment. Or, use the following shell:
+One command and you're up:
 
 ```bash
 docker run -d -p 18966:18966 --name myip --restart always jason5ng32/myip:latest
 ```
 
-## 📚 Environment Variable
+Or click the "Deploy with Docker" button at the top of this page.
 
-You can use the program without adding any environment variables, but if you want to use some advanced features, you can add the following environment variables:
+### Deploying in a Node Environment
 
-| Variable Name | Required | Default Value | Description |
-| --- | --- | --- | --- |
-| `BACKEND_PORT` | No | `"11966"` | The running port of the backend part of the program |
-| `FRONTEND_PORT` | No | `"18966"` | The running port of the frontend part of the program |
-| `SECURITY_RATE_LIMIT` | No | `"0"` | Controls the number of requests an IP can make to the backend server every 60 minutes (set to 0 for no limit) |
-| `SECURITY_DELAY_AFTER` | No | `"0"` | Controls the first X requests from an IP every 20 minutes that are not subject to speed limits, and after X requests, the delay will increase |
-| `SECURITY_BLACKLIST_LOG_FILE_PATH` | No | `"logs/blacklist-ip.log"` | Path setting. Records the list of IPs that triggered the limit after SECURITY_RATE_LIMIT is enabled |
-| `GOOGLE_MAP_API_KEY=` | No | `""` | API Key for Google Maps, used to display the location of the IP on a map |
-| `ALLOWED_DOMAINS` | No | `""` | Allowed domains for access, separated by commas, used to prevent misuse of the backend API |
-| `IPCHECKING_API_KEY` | No | `""` | API Key for IPCheck.ing, used to obtain accurate IP geolocation information |
-| `IPINFO_API_TOKEN` | No | `""` | API Token for IPInfo.io, used to obtain IP geolocation information through IPInfo.io |
-| `IPAPIIS_API_KEY` | No | `""` | API Key for IPAPI.is, used to obtain IP geolocation information through IPAPI.is |
-| `IP2LOCATION_API_KEY` | No | `""` | API Key for IP2Location.io, used to obtain IP geolocation information through IP2Location.io |
-| `MAXMIND_ACCOUNT_ID` | No | `""` | MaxMind account ID used with `MAXMIND_LICENSE_KEY` to download GeoLite2 databases |
-| `MAXMIND_LICENSE_KEY` | No | `""` | MaxMind license key used to download GeoLite2 databases |
-| `MAXMIND_AUTO_UPDATE` | No | `"false"` | Set to `"true"` to enable automatic GeoLite2 database updates when MaxMind credentials are configured |
-| `CLOUDFLARE_API` | No | `""` | API Key for Cloudflare, used to obtain AS system information through Cloudflare |
-| `MAC_LOOKUP_API_KEY` | No | `""` | API Key for MAC Lookup, used to obtain MAC address information |
-| `IPCHECKING_API_ENDPOINT` | **Yes** | `""` | IPCheck.ing API endpoint |
-| `VITE_GOOGLE_ANALYTICS_ID` | **Yes** | `""` | Google Analytics ID, used to track user behavior |
-| `VITE_CURL_IPV4_DOMAIN` | No | `""` | Provides the IPv4 domain for the CURL API to users |
-| `VITE_CURL_IPV6_DOMAIN` | No | `""` | Provides the IPv6 domain for the CURL API to users |
-| `VITE_CURL_IPV64_DOMAIN` | No | `""` | Provides the dual-stack domain for the CURL API to users |
-
-Note that if any of the CURL series environment variables are missing, the CURL API will not be enabled.
-
-### Using Environment Variables in a Node Environment
-
-Create environment variables:
+Make sure you have Node.js installed, then clone the code:
 
 ```bash
-cp .env.example .env
+git clone https://github.com/jason5ng32/MyIP.git
 ```
 
-Modify `.env`, and for example, add the following:
+Install and build. This project uses pnpm — if you don't have it, install it first (npm ships with Node, so this command always works):
 
 ```bash
-BACKEND_PORT=11966
-FRONTEND_PORT=18966
-GOOGLE_MAP_API_KEY="YOUR_KEY_HERE"
-ALLOWED_DOMAINS="example.com"
-IPCHECKING_API="YOUR_KEY_HERE"
+npm install -g pnpm
+pnpm install && pnpm run build
 ```
 
-Then restart the backend service.
+Run:
 
-### Using Environment Variables in Docker
+```bash
+pnpm start
+```
 
-You can add environment variables when running Docker, for example:
+The program will run on port 18966.
+
+## ⚙️ Configuration
+
+> [!IMPORTANT]
+> **MaxMind GeoLite2 credentials are required.** They power IP geolocation and ASN lookups — without them, the MaxMind source returns 503. They're free: → [MaxMind Setup](https://docs.ipcheck.ing/developer/getting-started/maxmind-setup)
+
+> [!WARNING]
+> **`ALLOWED_DOMAINS` is required on a real domain.** It's the hostname allowlist for the backend API — without it, every request from a non-localhost domain gets 403. → [Reverse Proxy & Domains](https://docs.ipcheck.ing/developer/getting-started/reverse-proxy-and-domains)
 
 ```bash
 docker run -d -p 18966:18966 \
-  -e GOOGLE_MAP_API_KEY="YOUR_KEY_HERE" \
-  -e ALLOWED_DOMAINS="example.com" \
-  -e IPCHECKING_API="YOUR_TOKEN_HERE" \
-  --name myip \
+  -e MAXMIND_ACCOUNT_ID="YOUR_ACCOUNT_ID" \
+  -e MAXMIND_LICENSE_KEY="YOUR_LICENSE_KEY" \
+  -e MAXMIND_AUTO_UPDATE="true" \
+  -e ALLOWED_DOMAINS="your-domain.com" \
+  --name myip --restart always \
   jason5ng32/myip:latest
-
 ```
 
+Everything else — optional API keys, security & rate limiting, logging, Sentry, the curl API domains — is documented in the [Environment Variables reference](https://docs.ipcheck.ing/developer/reference/environment-variables).
+
+## 📖 Documentation
+
+Full guides live in the MyIP Docs Center: **[docs.ipcheck.ing](https://docs.ipcheck.ing)**
+
+* [Developer Guide](https://docs.ipcheck.ing/developer) — deployment, configuration, architecture, and contributing
+* [Knowledge Base](https://docs.ipcheck.ing/knowledge-base) — how to use every tool, step-by-step network diagnosis, and networking concepts
+
+## 🤝 Contributing
+
+Contributions are welcome! We keep a curated set of beginner-friendly tasks — each with exact file paths, acceptance criteria, and tests that guide you to a green build:
+
+* 🏷️ [Good first issues](https://github.com/jason5ng32/MyIP/labels/good%20first%20issue) — add a DNS resolver from your country, add curated site lists, translate the README into your language, polish translations, and more
+* 🌐 [TRANSLATING.md](TRANSLATING.md) — bring the UI to your language: a locale pack plus one registry line, and a **partial translation is a welcome first PR**
+* 📄 [CONTRIBUTING.md](CONTRIBUTING.md) — setup, conventions, and how PRs flow (target the `dev` branch)
+
 ## 👩🏻‍💻 Advanced Usage
+
+<details>
+<summary>Proxy rules for checking your real IP and your proxy IP at the same time</summary>
 
 If you're using a proxy for internet access, consider adding this rule to your proxy configuration (modify it according to your client). This setup lets you check both your real IP and the IP when using the proxy:
 
@@ -175,24 +167,26 @@ DOMAIN,ptest-7.ipcheck.ing,Proxy7
 DOMAIN,ptest-8.ipcheck.ing,Proxy8
 ```
 
-## 😶‍🌫️ Additional Notes
-
-When version 2.0 was released, I said that 70% of the code for this program was not written by me, but by ChatGPT. After about 90 interactions, plus some minor manual adjustments, the entire codebase was completed.
-
-Of course, the architecture and UI still required my own design.
-
-With the release of version 3.0 and subsequent versions, the proportion of code written with the help of ChatGPT has gradually decreased, now estimated to be between 40% and 50%. On the contrary, in this process, I went from having no knowledge of JavaScript and Vue to being able to understand most of the JS code, and I can now write some on my own.
-
-Thanks to AI, it has given me, an unemployed product manager, a rapid opportunity to learn programming.
-
-## 🌟 Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=jason5ng32/MyIP&type=Date)](https://star-history.com/#jason5ng32/MyIP&Date)
+</details>
 
 ## 💖 Sponsors
 
-As a open source project, I'm very grateful to the following sponsors for their support:
+As an open source project, I'm very grateful to the following sponsors for their support:
 
-<a href="https://www.digitalocean.com/?refcode=fd2634a3981b&utm_campaign=Referral_Invite&utm_medium=Referral_Program&utm_source=badge"><img src="https://opensource.nyc3.cdn.digitaloceanspaces.com/attribution/assets/SVG/DO_Logo_horizontal_blue.svg" height="40px" title="DigitalOcean" /></a>
+<a href="https://www.digitalocean.com/?refcode=fd2634a3981b&utm_campaign=Referral_Invite&utm_medium=Referral_Program&utm_source=badge"><img src="https://res.ipcheck.ing/img/digitalocean_logo.png" width="240px"  title="DigitalOcean" /></a>
 
-<a href="https://www.cloudflare.com/lp/project-alexandria/"><img src="https://cf-assets.www.cloudflare.com/zkvhlag99gkb/69RwBidpiEHCDZ9rFVVk7T/092507edbed698420b89658e5a6d5105/CF_logo_stacked_blktype.png" alt="Cloudflare Project Alexandria" title="Cloudflare Project Alexandria" height="60px" /></a>
+<a href="https://www.1password.com"><img src="https://res.ipcheck.ing/img/1password_logo.png" alt="1Password" title="1Password" width="240px"  /></a>
+
+<a href="https://www.greptile.com/"><img src="https://res.ipcheck.ing/img/greptile_logo.png" alt="Greptile" title="Greptile" width="240px"  /></a>
+
+<a href="https://www.sentry.io"><img src="https://res.ipcheck.ing/img/sentry_logo.png" alt="Sentry" title="Sentry" width="240px" /></a>
+
+<a href="https://www.gitbook.com"><img src="https://res.ipcheck.ing/img/gitbook_logo.png" alt="GitBook" title="GitBook" width="240px" /></a>
+
+<a href="https://v.ps/?utm_source=ipcheck.ing&utm_medium=referral&utm_campaign=github_readme&utm_content=en"><img src="https://res.ipcheck.ing/img/vps_logo.png" alt="v.ps" title="v.ps" width="240px" /></a>
+
+<a href="https://www.cloudflare.com/lp/project-alexandria/"><img src="https://res.ipcheck.ing/img/cloudflare_logo.png" alt="Cloudflare Project Alexandria" title="Cloudflare Project Alexandria" width="240px" /></a>
+
+## 📄 License
+
+[MIT](LICENSE) © Jason Ng

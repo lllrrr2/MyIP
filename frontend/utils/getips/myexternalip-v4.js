@@ -1,35 +1,14 @@
-import { isValidIP } from '@/utils/valid-ip.js';
+// MyExternalIP IPv4 — ipv4.myexternalip.com JSON endpoint. Fallback hop for
+// the Cloudflare IPv4 chain in index.js.
+import { fetchWithTimeout } from '../fetch-with-timeout.js';
 
-// 从 MyExternalIP 获取 IPv4 地址
-const getIPFromMyExternalIP_V4 = async () => {
-    try {
-        const response = await fetch("https://ipv4.myexternalip.com/json");
-        if (!response.ok) {
-            throw new Error("Network response was not ok");
-        }
-
+export const myExternalIPV4 = {
+    id: 'myexternalip-v4',
+    name: 'MyExternalIP IPv4',
+    run: async () => {
+        const response = await fetchWithTimeout('https://ipv4.myexternalip.com/json');
+        if (!response.ok) throw new Error('Network response was not ok');
         const data = await response.json();
-        const ip = data.ip;
-        const source = "MyExternalIP IPv4";
-        if (isValidIP(ip)) {
-            return {
-                ip: ip,
-                source: source
-            };
-        } else { 
-            console.error("Invalid IP from MyExternalIP:", ip);
-            return {
-                ip: null,
-                source: source
-            };
-        }
-    } catch (error) {
-        console.error("Error fetching IPv4 address from MyExternalIP:", error);
-        return {
-            ip: null,
-            source: "MyExternalIP IPv4"
-        };
-    }
+        return data.ip;
+    },
 };
-
-export { getIPFromMyExternalIP_V4 };

@@ -1,71 +1,61 @@
-import { get } from 'https';
-import { isValidIP } from '../common/valid-ip.js';
-import { refererCheck } from '../common/referer-check.js';
+// /api/ipinfo — geolocation source handler backed by ipinfo.io.
+// Picks a random API token (when configured) and normalizes the response
+// into the canonical geo shape via the shared makeGeoHandler factory.
+
 import countryLookup from 'country-code-lookup';
+import { makeGeoHandler } from '../common/geo-handler.js';
 
-export default async (req, res) => {
-    // 限制只能从指定域名访问
-    const referer = req.headers.referer;
-    if (!refererCheck(referer)) {
-        return res.status(403).json({ error: referer ? 'Access denied' : 'What are you doing?' });
-    }
-
-    // 从请求中获取 IP 地址
+function buildUrl(req) {
     const ipAddress = req.query.ip;
-    if (!ipAddress) {
-        return res.status(400).json({ error: 'No IP address provided' });
-    }
 
-    // 检查 IP 地址是否合法
-    if (!isValidIP(ipAddress)) {
-        return res.status(400).json({ error: 'Invalid IP address' });
-    }
-
-    // 构建请求 ipinfo.io 的 URL
-    const tokens = (process.env.IPINFO_API_TOKEN || '').split(',');
+    // Build request URL for ipinfo.io.
+    // IPINFO_API_TOKEN is the pre-rename spelling — keep reading it so
+    // existing deployments don't lose the token on upgrade.
+    const tokens = (process.env.IPINFO_API_KEY || process.env.IPINFO_API_TOKEN || '').split(',');
     const token = tokens[Math.floor(Math.random() * tokens.length)];
 
     const url_hasToken = `https://ipinfo.io/${ipAddress}?token=${token}`;
     const url_noToken = `https://ipinfo.io/${ipAddress}`;
-    const url = token ? url_hasToken : url_noToken;
+    return token ? url_hasToken : url_noToken;
+}
 
-    get(url, apiRes => {
-        let data = '';
-        apiRes.on('data', chunk => data += chunk);
-        apiRes.on('end', async () => {
-            try {
-                const originalJson = JSON.parse(data);
-                const modifiedJson = modifyJson(originalJson);
-
-                res.json(modifiedJson);
-            } catch (e) {
-                res.status(500).json({ error: 'Error parsing JSON' });
-            }
-        });
-    }).on('error', (e) => {
-        res.status(500).json({ error: e.message });
-    });
+// Parse one half of `loc`. Blank and non-numeric halves become null rather
+// than the 0 Number() would hand back — 0 is a real coordinate.
+const toCoordinate = (raw) => {
+    const value = Number(raw);
+    return raw?.trim() && Number.isFinite(value) ? value : null;
 };
 
-function modifyJson(json) {
-    const { ip, city, region, country, loc, org } = json;
+// Every field is optional upstream: anycast ranges, bogons ({"bogon":true})
+// and degraded answers all come back 200 with `loc`, `org` or `country`
+// missing, so nothing here may be split or dereferenced unguarded. Absent
+// data degrades to null / empty while the canonical shape stays complete.
+export const modifyJson = (json) => {
+    const { ip, city, region, country, loc, org } = json || {};
 
-    const countryName = countryLookup.byIso(country).country || 'Unknown Country';
+    // byIso returns null for an unknown or absent code.
+    const countryName = countryLookup.byIso(country)?.country || 'Unknown Country';
 
-    const [latitude, longitude] = loc.split(',').map(Number);
-    const [asn, ...orgName] = org.split(' ');
-    const modifiedOrg = orgName.join(' ');
+    // "37.4056,-122.0775" — a partial or non-numeric pair degrades to null.
+    const [rawLat, rawLon] = typeof loc === 'string' ? loc.split(',') : [];
+    const latitude = toCoordinate(rawLat);
+    const longitude = toCoordinate(rawLon);
+
+    // "AS15169 Google LLC" — leading token is the ASN, the rest the org name.
+    const [asn = '', ...orgName] = typeof org === 'string' ? org.split(' ') : [];
 
     return {
-        ip,
-        city,
-        region,
-        country,
+        ip: ip ?? null,
+        city: city ?? null,
+        region: region ?? null,
+        country: country ?? null,
         country_name: countryName,
-        country_code: country,
+        country_code: country ?? null,
         latitude,
         longitude,
         asn,
-        org: modifiedOrg
+        org: orgName.join(' ')
     };
-}
+};
+
+export default makeGeoHandler({ name: 'ipinfo-io', buildUrl, normalize: modifyJson });

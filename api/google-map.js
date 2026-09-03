@@ -1,7 +1,9 @@
-import { get } from 'https';
-import { refererCheck } from '../common/referer-check.js';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import { fetchUpstream } from '../common/fetch-with-timeout.js';
+import logger from '../common/logger.js';
 
-// 验证请求合法性
+// Validate request legitimacy
 function isValidRequest(req) {
     const isLatitudeValid = /^-?\d+(\.\d+)?$/.test(req.query.latitude);
     const isLongitudeValid = /^-?\d+(\.\d+)?$/.test(req.query.longitude);
@@ -14,7 +16,7 @@ function isValidRequest(req) {
     }
 }
 
-// 定义白天模式和黑暗模式样式字符串
+// Define day and night mode style strings
 const styles = {
     Dark: [
         "feature:all|element:geometry.fill|color:0x242f3e",
@@ -38,26 +40,23 @@ const styles = {
     ]
 };
 
-export default (req, res) => {
-    // 限制只能从指定域名访问
-    const referer = req.headers.referer;
-    if (!refererCheck(referer)) {
-        return res.status(403).json({ error: referer ? 'Access denied' : 'What are you doing?' });
-    }
-
-    // 检查请求是否合法
+export default async (req, res) => {
+    // Check if request is legitimate
     if (!isValidRequest(req)) {
         return res.status(400).json({ error: 'Invalid request' });
     }
 
-    // 使用 req.query 获取参数
+    // Use req.query to get parameters
     const { latitude, longitude, language, CanvasMode } = req.query;
 
     if (!latitude || !longitude || !language) {
         return res.status(400).json({ error: 'Missing latitude, longitude, or language' });
     }
 
-    const mapSize = '500x400';
+    // Size targets the Dialog-based map viewer: aspect-2/1 at up to ~768px wide.
+    // Standard Static Maps plan caps each dimension at 640, so 640x320 + scale=2
+    // yields a 1280x640 effective image — sharp when downscaled into the Dialog.
+    const mapSize = '640x320';
     const fmt = 'jpg';
     const scale = 2;
     const zoom = 3;
@@ -72,9 +71,29 @@ export default (req, res) => {
 
     const url = `https://maps.googleapis.com/maps/api/staticmap?center=${latitude},${longitude}&markers=color:blue%7C${latitude},${longitude}&scale=${scale}&zoom=${zoom}&maptype=roadmap&language=${language}&format=${fmt}&size=${mapSize}&style=${styleParam}&key=${apiKey}`;
 
-    get(url, apiRes => {
-        apiRes.pipe(res);
-    }).on('error', (e) => {
-        res.status(500).json({ error: e.message });
-    });
+    // Unlike the JSON handlers, the Static Maps response is a binary JPEG
+    // and must be passed through to the client. pipeline() propagates errors
+    // both ways: an upstream reset destroys the response, a client
+    // disconnect cancels the upstream body.
+    try {
+        const apiRes = await fetchUpstream(url);
+        if (!apiRes.ok) {
+            return res.status(apiRes.status).json({ error: `Upstream map API returned ${apiRes.status}` });
+        }
+        res.setHeader('Content-Type', apiRes.headers.get('content-type') || 'image/jpeg');
+        // Binary streams bypass the res.json hook in the cacheable() middleware,
+        // so apply the cache value it stashed on res.locals here on the 2xx path.
+        if (res.locals.cacheControl) {
+            res.setHeader('Cache-Control', res.locals.cacheControl);
+        }
+        await pipeline(Readable.fromWeb(apiRes.body), res);
+    } catch (e) {
+        // Visitors abandoning a half-loaded image are routine, not a failure.
+        if (e?.code === 'ERR_STREAM_PREMATURE_CLOSE') return;
+        logger.error({ err: e, latitude, longitude, language, CanvasMode }, 'google-map handler failed');
+        if (!res.headersSent && !res.destroyed) {
+            return res.status(500).json({ error: e.message });
+        }
+        if (!res.destroyed) res.destroy();
+    }
 };

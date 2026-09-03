@@ -1,0 +1,171 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+
+import {
+  transformDataFromIPapi,
+  extractAdvancedData,
+} from '../frontend/utils/transform-ip-data.js';
+
+// simple i18n translation stub: return key with prefix for assertions, to verify template references rather than hardcoded translation text
+const t = (key) => `<${key}>`;
+
+const basicRaw = {
+  country_name: 'Japan',
+  country: 'JP',
+  region: 'Tokyo',
+  city: 'Shinjuku',
+  latitude: '35.6938',
+  longitude: '139.7034',
+  org: 'Example Telecom',
+  asn: 'AS12345',
+};
+
+describe('transformDataFromIPapi()', () => {
+  it('throws when raw payload carries an error', () => {
+    assert.throws(
+      () => transformDataFromIPapi({ error: true, reason: 'nope' }, 1, t, 'en'),
+      /nope/,
+    );
+  });
+
+  it('maps base fields verbatim for non-source-0 callers', () => {
+    const out = transformDataFromIPapi(basicRaw, 1, t, 'en');
+    assert.equal(out.country_name, 'Japan');
+    assert.equal(out.country_code, 'JP');
+    assert.equal(out.region, 'Tokyo');
+    assert.equal(out.city, 'Shinjuku');
+    assert.equal(out.isp, 'Example Telecom');
+    assert.equal(out.asn, 'AS12345');
+  });
+
+  it('builds bgp.tools asnlink for AS-prefixed ASN', () => {
+    const out = transformDataFromIPapi(basicRaw, 1, t, 'en');
+    assert.equal(out.asnlink, 'https://bgp.tools/as/AS12345');
+  });
+
+  it('returns asnlink=false when ASN is not AS-prefixed', () => {
+    const out = transformDataFromIPapi({ ...basicRaw, asn: '12345' }, 1, t, 'en');
+    assert.equal(out.asnlink, false);
+  });
+
+  it('returns asnlink=false when ASN is missing', () => {
+    const { asn, ...noAsn } = basicRaw;
+    const out = transformDataFromIPapi(noAsn, 1, t, 'en');
+    assert.equal(out.asnlink, false);
+    assert.equal(out.asn, '');
+  });
+
+  it('omits map URLs when lat/lon missing', () => {
+    const { latitude, longitude, ...noCoord } = basicRaw;
+    const out = transformDataFromIPapi(noCoord, 1, t, 'en');
+    assert.equal(out.mapUrl, '');
+    assert.equal(out.mapUrl_dark, '');
+  });
+
+  it('builds map URLs with language + dark variant when lat/lon present', () => {
+    const out = transformDataFromIPapi(basicRaw, 1, t, 'zh');
+    // Map request coords are quantized to 1 decimal for CF edge-cache sharing,
+    // while the displayed lat/lon keep full precision.
+    assert.match(out.mapUrl, /^\/api\/map\?latitude=35\.7&longitude=139\.7&language=zh$/);
+    assert.match(out.mapUrl_dark, /CanvasMode=Dark$/);
+    assert.equal(out.latitude, '35.6938');
+    assert.equal(out.longitude, '139.7034');
+  });
+
+  it("treats country='N/A' as empty country_code", () => {
+    const out = transformDataFromIPapi({ ...basicRaw, country: 'N/A' }, 1, t, 'en');
+    assert.equal(out.country_code, '');
+  });
+
+  it('localizes country_name from the code, ignoring the upstream string', () => {
+    // upstream said 'Japan' but the UI language is zh → CLDR name wins
+    const out = transformDataFromIPapi(basicRaw, 1, t, 'zh');
+    assert.equal(out.country_name, '日本');
+  });
+
+  it('falls back to the upstream country_name when the code is unusable', () => {
+    const na = transformDataFromIPapi({ ...basicRaw, country: 'N/A' }, 1, t, 'zh');
+    assert.equal(na.country_name, 'Japan');
+    const none = transformDataFromIPapi({ ...basicRaw, country: undefined, country_name: undefined }, 1, t, 'zh');
+    assert.equal(none.country_name, '');
+  });
+
+  it('merges advancedData when ipGeoSource === 0', () => {
+    const withAdvanced = {
+      ...basicRaw,
+      advancedData: {
+        tags: { isProxyOrVPN: false, isNative: true },
+        operatorType: 'Business',
+        score: 92,
+        proxyProtocol: 'http',
+        proxyProvider: 'Acme',
+      },
+    };
+    const out = transformDataFromIPapi(withAdvanced, 0, t, 'en');
+    assert.equal(out.isProxy, '<ipInfos.advancedData.proxyNo>');
+    assert.equal(out.type, '<ipInfos.advancedData.type.Business>');
+    assert.equal(out.qualityScore, 92);
+    assert.equal(out.proxyProtocol, 'http');
+    assert.equal(out.proxyProvider, 'Acme');
+    assert.equal(out.isNativeIP, true);
+  });
+});
+
+describe('extractAdvancedData()', () => {
+  it('propagates sign_in_required sentinel verbatim for type / qualityScore / isNativeIP / isProxy', () => {
+    const out = extractAdvancedData({
+      tags: 'sign_in_required',
+      score: 'sign_in_required',
+      operatorType: 'sign_in_required',
+      proxyProtocol: 'http',
+    }, t);
+    assert.equal(out.isProxy, 'sign_in_required');
+    assert.equal(out.type, 'sign_in_required');
+    assert.equal(out.qualityScore, 'sign_in_required');
+    assert.equal(out.isNativeIP, 'sign_in_required');
+  });
+
+  it('propagates quota_exceeded sentinel verbatim, and drops the report codes', () => {
+    const out = extractAdvancedData({
+      tags: 'quota_exceeded',
+      score: 'quota_exceeded',
+      operatorType: 'quota_exceeded',
+      proxyProtocol: 'quota_exceeded',
+    }, t);
+    assert.equal(out.isProxy, 'quota_exceeded');
+    assert.equal(out.type, 'quota_exceeded');
+    assert.equal(out.qualityScore, 'quota_exceeded');
+    assert.equal(out.isNativeIP, 'quota_exceeded');
+    // Locale-free report codes must be absent for gated data.
+    assert.equal(out.proxyCode, undefined);
+    assert.equal(out.ipTypeCode, undefined);
+  });
+
+  it("classifies isProxy='proxyYes' for VPN + known protocol", () => {
+    const out = extractAdvancedData({
+      tags: { isProxyOrVPN: true, isNative: false },
+      operatorType: 'VPN',
+      score: 10,
+      proxyProtocol: 'http',
+    }, t);
+    assert.equal(out.isProxy, '<ipInfos.advancedData.proxyYes>');
+  });
+
+  it("classifies isProxy='proxyMaybe' for VPN with unknown protocol", () => {
+    const out = extractAdvancedData({
+      tags: { isProxyOrVPN: true, isNative: false },
+      operatorType: 'Hosting',
+      score: 10,
+      proxyProtocol: 'unknown',
+    }, t);
+    assert.equal(out.isProxy, '<ipInfos.advancedData.proxyMaybe>');  });
+
+  it('falls back proxyProtocol to empty string when missing (template decides display)', () => {
+    const out = extractAdvancedData({
+      tags: { isProxyOrVPN: false, isNative: true },
+      operatorType: 'Residential',
+      score: 80,
+    }, t);
+    assert.equal(out.proxyProtocol, '');
+  });
+});
